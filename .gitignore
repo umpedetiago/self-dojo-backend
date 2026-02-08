@@ -1,0 +1,12 @@
+# Ignorar arquivos de ambiente
+.env
+.env.example
+
+# Ignorar dados do banco
+data/
+
+# Ignorar arquivos de log
+logs/
+
+# Ignorar arquivos de teste
+test/

@@ -1,0 +1,18 @@
+services:
+  go_db:
+    container_name: go_db
+    image: postgres:18.1
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=go_db
+    volumes:
+      - ./data:/var/lib/postgresql
+    networks:
+      - go_network
+
+networks:
+  go_network:
+    driver: bridge
