@@ -3,9 +3,12 @@ package config
 import "os"
 
 type Config struct {
-	Port        string
-	DatabaseURL string
-	JWTSecret   string
+	Port                     string
+	DatabaseURL              string
+	JWTSecret                string
+	ResendAPIKey             string
+	EmailFrom                string
+	FrontendResetPasswordURL string
 }
 
 func Load() Config {
@@ -16,19 +19,25 @@ func Load() Config {
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		// Local default for the docker-compose Postgres service.
 		dbURL = "postgres://postgres:postgres@localhost:5433/go_db?sslmode=disable"
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		// Dev default only; override in production.
 		jwtSecret = "dev-secret-change-me"
 	}
 
+	emailFrom := os.Getenv("EMAIL_FROM")
+	if emailFrom == "" {
+		emailFrom = "onboarding@resend.dev"
+	}
+
 	return Config{
-		Port:        port,
-		DatabaseURL: dbURL,
-		JWTSecret:   jwtSecret,
+		Port:                     port,
+		DatabaseURL:              dbURL,
+		JWTSecret:                jwtSecret,
+		ResendAPIKey:             os.Getenv("RESEND_API_KEY"),
+		EmailFrom:                emailFrom,
+		FrontendResetPasswordURL: os.Getenv("FRONTEND_RESET_PASSWORD_URL"),
 	}
 }

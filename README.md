@@ -30,7 +30,19 @@ Rodar:
 go run ./cmd
 ```
 
-## Endpoints
+## Endpoints (URLs exatas – 404 = path ou método errado)
+
+- `GET  http://localhost:8080/ping`
+- `GET  http://localhost:8080/swagger`
+- `GET  http://localhost:8080/openapi.yaml`
+- `POST http://localhost:8080/auth/register`
+- `POST http://localhost:8080/auth/login`
+- `POST http://localhost:8080/auth/logout` (requer `Authorization: Bearer <token>`)
+- `POST http://localhost:8080/auth/forgot-password`
+- `POST http://localhost:8080/auth/reset-password`
+- `GET  http://localhost:8080/me` (requer header `Authorization: Bearer <token>`)
+
+Não existe prefixo `/api` – use `/auth/register`, não `/api/auth/register`.
 
 ## Swagger (OpenAPI)
 
@@ -42,7 +54,7 @@ go run ./cmd
 Body:
 
 ```json
-{ "email": "user@example.com", "password": "minimo-8-caracteres" }
+{ "username": "meu_usuario", "email": "user@example.com", "password": "minimo-8-caracteres" }
 ```
 
 ### POST `/auth/login`
@@ -53,7 +65,39 @@ Body:
 { "email": "user@example.com", "password": "minimo-8-caracteres" }
 ```
 
+### POST `/auth/forgot-password`
+
+Solicita reset de senha. Em desenvolvimento, retorna o token na resposta (em produção, enviaria por email).
+
+Body:
+
+```json
+{ "email": "user@example.com" }
+```
+
+Resposta (dev):
+
+```json
+{
+  "message": "if the email exists, a reset link will be sent",
+  "token": "abc123...",
+  "expires_at": "2026-02-08T16:00:00Z"
+}
+```
+
+### POST `/auth/reset-password`
+
+Resetar senha usando o token recebido.
+
+Body:
+
+```json
+{ "token": "abc123...", "password": "nova-senha-minimo-8" }
+```
+
 ### GET `/me`
+
+Retorna o perfil do usuário autenticado: `id`, `username`, `email`.
 
 Header:
 

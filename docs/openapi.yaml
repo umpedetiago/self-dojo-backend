@@ -36,10 +36,11 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AuthRequest"
+              $ref: "#/components/schemas/RegisterRequest"
             examples:
               example:
                 value:
+                  username: meu_usuario
                   email: user@example.com
                   password: minimo-8-caracteres
       responses:
@@ -56,7 +57,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Email already exists
+          description: Email or username already exists
           content:
             application/json:
               schema:
@@ -92,26 +93,173 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /me:
-    get:
-      tags: [User]
-      summary: Current user (example protected route)
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      description: Retorna sucesso; o cliente deve descartar o token (JWT é stateless).
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Current user id
+          description: Logged out
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  userId:
+                  message:
+                    type: string
+                    example: logged out
+        "401":
+          description: Token ausente ou inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Solicitar reset de senha
+      description: Gera um token de reset e retorna (em dev). Em produção, enviaria por email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required: [email]
+      responses:
+        "200":
+          description: Token gerado (em dev retorna o token; em produção apenas confirma)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  token:
+                    type: string
+                    description: Apenas em desenvolvimento - remover em produção
+                  expires_at:
+                    type: string
+                    format: date-time
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Resetar senha com token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+              required: [token, password]
+      responses:
+        "200":
+          description: Senha resetada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: password reset successfully
+        "400":
+          description: Token inválido, expirado ou já usado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /me:
+    get:
+      tags: [User]
+      summary: Current user (perfil do usuário autenticado)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dados do usuário
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
                     type: string
                     format: uuid
-                required: [userId]
+                  username:
+                    type: string
+                  email:
+                    type: string
+                    format: email
+                required: [id, username, email]
         "401":
           description: Missing/invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags: [User]
+      summary: Update user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          description: Missing/invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
           content:
             application/json:
               schema:
@@ -124,6 +272,20 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    RegisterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+      required: [username, email, password]
     AuthRequest:
       type: object
       properties:
@@ -132,7 +294,6 @@ components:
           format: email
         password:
           type: string
-          minLength: 8
       required: [email, password]
     AuthResponse:
       type: object
@@ -148,13 +309,15 @@ components:
         id:
           type: string
           format: uuid
+        username:
+          type: string
         email:
           type: string
           format: email
         createdAt:
           type: string
           format: date-time
-      required: [id, email, createdAt]
+      required: [id, username, email, createdAt]
     ErrorResponse:
       type: object
       properties:
@@ -163,4 +326,18 @@ components:
         details:
           type: string
       required: [error]
+    UpdateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+      required: [username]
+    UserResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+      required: [user]
 
