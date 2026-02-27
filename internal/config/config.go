@@ -9,6 +9,9 @@ type Config struct {
 	ResendAPIKey             string
 	EmailFrom                string
 	FrontendResetPasswordURL string
+	SupabaseURL              string
+	SupabaseServiceRoleKey   string
+	AvatarBucket             string
 }
 
 func Load() Config {
@@ -32,6 +35,11 @@ func Load() Config {
 		emailFrom = "onboarding@resend.dev"
 	}
 
+	avatarBucket := os.Getenv("AVATAR_BUCKET")
+	if avatarBucket == "" {
+		avatarBucket = "avatars"
+	}
+
 	return Config{
 		Port:                     port,
 		DatabaseURL:              dbURL,
@@ -39,5 +47,8 @@ func Load() Config {
 		ResendAPIKey:             os.Getenv("RESEND_API_KEY"),
 		EmailFrom:                emailFrom,
 		FrontendResetPasswordURL: os.Getenv("FRONTEND_RESET_PASSWORD_URL"),
+		SupabaseURL:              os.Getenv("SUPABASE_URL"),
+		SupabaseServiceRoleKey:   os.Getenv("SUPABASE_SERVICE_ROLE_KEY"),
+		AvatarBucket:             avatarBucket,
 	}
 }

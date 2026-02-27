@@ -10,22 +10,25 @@ import (
 	"go-api/internal/auth"
 	"go-api/internal/email"
 	"go-api/internal/repository"
+	"go-api/internal/storage"
 )
 
 type AuthHandler struct {
 	users          *repository.UserRepository
 	passwordResets *repository.PasswordResetRepository
 	emailSender    email.Sender // nil = sem Resend; forgot-password retorna o token na resposta
+	avatarStorage  storage.Provider
 	jwtSecret      string
 	tokenTTL       time.Duration
 	resetTokenTTL  time.Duration
 }
 
-func NewAuthHandler(users *repository.UserRepository, passwordResets *repository.PasswordResetRepository, emailSender email.Sender, jwtSecret string) *AuthHandler {
+func NewAuthHandler(users *repository.UserRepository, passwordResets *repository.PasswordResetRepository, emailSender email.Sender, avatarStorage storage.Provider, jwtSecret string) *AuthHandler {
 	return &AuthHandler{
 		users:          users,
 		passwordResets: passwordResets,
 		emailSender:    emailSender,
+		avatarStorage:  avatarStorage,
 		jwtSecret:      jwtSecret,
 		tokenTTL:       24 * time.Hour,
 		resetTokenTTL:  1 * time.Hour,

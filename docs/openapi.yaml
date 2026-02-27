@@ -8,6 +8,12 @@ tags:
   - name: Health
   - name: Auth
   - name: User
+  - name: Profile
+  - name: Academies
+  - name: Membership
+  - name: Students
+  - name: ClassSchedules
+  - name: Modalities
 paths:
   /ping:
     get:
@@ -234,9 +240,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /v1/me:
+    get:
+      tags: [Profile]
+      summary: Current user profile (mobile)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dados completos do usuário
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Missing/invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     put:
-      tags: [User]
-      summary: Update user
+      tags: [Profile]
+      summary: Update current user profile (mobile)
       security:
         - bearerAuth: []
       requestBody:
@@ -265,12 +296,1163 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /v1/me/avatar:
+    post:
+      tags: [Profile]
+      summary: Upload avatar for authenticated user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required: [file]
+      responses:
+        "200":
+          description: Avatar uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvatarUploadResponse"
+        "400":
+          description: Invalid file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing/invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: Storage provider not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies:
+    get:
+      tags: [Academies]
+      summary: List academies owned by authenticated user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: owner
+          schema:
+            type: string
+            enum: [me]
+          required: true
+      responses:
+        "200":
+          description: Academy list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AcademyResponse"
+                required: [items]
+        "400":
+          description: Invalid query
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing/invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags: [Academies]
+      summary: Create academy
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAcademyRequest"
+      responses:
+        "201":
+          description: Academy created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcademyResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing/invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/search:
+    get:
+      tags: [Academies]
+      summary: Search academies by query/city/modality
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: city
+          schema:
+            type: string
+        - in: query
+          name: modality
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AcademyResponse"
+                required: [items]
+        "401":
+          description: Missing/invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}:
+    get:
+      tags: [Academies]
+      summary: Get academy details
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+      responses:
+        "200":
+          description: Academy detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcademyResponse"
+        "400":
+          description: Invalid academy id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Academy not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      tags: [Academies]
+      summary: Update academy
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAcademyRequest"
+      responses:
+        "200":
+          description: Academy updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcademyResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Academy not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/stats:
+    get:
+      tags: [Academies]
+      summary: Get academy stats
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+      responses:
+        "200":
+          description: Academy stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcademyStatsResponse"
+        "400":
+          description: Invalid academy id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Academy not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/membership/me:
+    get:
+      tags: [Membership]
+      summary: Get membership status for authenticated user in academy
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+      responses:
+        "200":
+          description: Membership status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipStatusResponse"
+        "400":
+          description: Invalid academy id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/membership-requests:
+    get:
+      tags: [Membership]
+      summary: List membership requests for academy (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, approved, suspended, cancelled]
+      responses:
+        "200":
+          description: Membership request list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AcademyMemberResponse"
+                required: [items]
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Academy not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags: [Membership]
+      summary: Create membership request for authenticated user
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+      responses:
+        "201":
+          description: Membership request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcademyMemberResponse"
+        "404":
+          description: Academy not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Membership already pending or approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/membership-requests/me:
+    delete:
+      tags: [Membership]
+      summary: Cancel pending membership request for authenticated user
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+      responses:
+        "204":
+          description: Membership request cancelled
+        "404":
+          description: Pending membership request not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/membership-requests/{memberId}/approve:
+    post:
+      tags: [Membership]
+      summary: Approve membership request (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/MemberIdParam"
+      responses:
+        "200":
+          description: Membership request approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcademyMemberResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Academy or membership request not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/membership-requests/{memberId}/reject:
+    post:
+      tags: [Membership]
+      summary: Reject membership request (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/MemberIdParam"
+      responses:
+        "204":
+          description: Membership request rejected
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Academy or membership request not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/students:
+    get:
+      tags: [Students]
+      summary: List approved students in academy (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+      responses:
+        "200":
+          description: Student list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AcademyStudentResponse"
+                required: [items]
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Academy not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/students/{memberId}:
+    get:
+      tags: [Students]
+      summary: Get student details by member id (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/MemberIdParam"
+      responses:
+        "200":
+          description: Student detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcademyStudentResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Academy or student not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/students/{memberId}/modalities:
+    post:
+      tags: [Students]
+      summary: Enroll student in academy modality
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/MemberIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnrollStudentRequest"
+      responses:
+        "201":
+          description: Student enrolled in modality
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentModalityResponse"
+        "404":
+          description: Academy, student, or modality not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Student already enrolled in modality
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/students/{memberId}/modalities/{studentModalityId}:
+    patch:
+      tags: [Students]
+      summary: Update student modality fields
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/MemberIdParam"
+        - $ref: "#/components/parameters/StudentModalityIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStudentModalityRequest"
+      responses:
+        "200":
+          description: Student modality updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentModalityResponse"
+        "404":
+          description: Student modality not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags: [Students]
+      summary: Remove student from modality
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/MemberIdParam"
+        - $ref: "#/components/parameters/StudentModalityIdParam"
+      responses:
+        "204":
+          description: Enrollment removed
+        "404":
+          description: Student modality not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/student-modalities/{studentModalityId}/promotions:
+    post:
+      tags: [Students]
+      summary: Promote student in modality (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/StudentModalityIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromoteStudentRequest"
+      responses:
+        "200":
+          description: Student promoted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentModalityResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Student modality not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/student-modalities/{studentModalityId}/graduation-history:
+    get:
+      tags: [Students]
+      summary: List graduation history by student modality
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/StudentModalityIdParam"
+      responses:
+        "200":
+          description: Graduation history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GraduationHistoryResponse"
+                required: [items]
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Student modality not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/check-ins:
+    post:
+      tags: [Students]
+      summary: Register check-in and increment student class counters
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCheckInRequest"
+      responses:
+        "201":
+          description: Check-in created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckInResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Student modality not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/student-modalities/{studentModalityId}/check-ins:
+    get:
+      tags: [Students]
+      summary: List check-ins for student modality
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/StudentModalityIdParam"
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Check-in list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CheckInResponse"
+                required: [items]
+        "400":
+          description: Invalid dates format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Student modality not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/class-schedules:
+    get:
+      tags: [ClassSchedules]
+      summary: List class schedules by academy
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - in: query
+          name: modalityId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: dayOfWeek
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 6
+        - in: query
+          name: isActive
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Class schedule list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ClassScheduleResponse"
+                required: [items]
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Academy not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags: [ClassSchedules]
+      summary: Create class schedule (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClassScheduleRequest"
+      responses:
+        "201":
+          description: Class schedule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassScheduleResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/class-schedules/available-for-checkin:
+    get:
+      tags: [ClassSchedules]
+      summary: List active schedules available for check-in today
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+      responses:
+        "200":
+          description: Available class schedules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ClassScheduleResponse"
+                required: [items]
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Academy not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/class-schedules/{scheduleId}:
+    get:
+      tags: [ClassSchedules]
+      summary: Get class schedule by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/ScheduleIdParam"
+      responses:
+        "200":
+          description: Class schedule detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassScheduleResponse"
+        "404":
+          description: Class schedule or academy not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      tags: [ClassSchedules]
+      summary: Update class schedule (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/ScheduleIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateClassScheduleRequest"
+      responses:
+        "200":
+          description: Class schedule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassScheduleResponse"
+        "404":
+          description: Class schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags: [ClassSchedules]
+      summary: Delete class schedule (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/ScheduleIdParam"
+      responses:
+        "204":
+          description: Class schedule deleted
+        "404":
+          description: Class schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/modalities:
+    get:
+      tags: [Modalities]
+      summary: List academy modalities
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+      responses:
+        "200":
+          description: Modality list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AcademyModalityResponse"
+                required: [items]
+        "400":
+          description: Invalid academy id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags: [Modalities]
+      summary: Create modality in academy
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateModalityRequest"
+      responses:
+        "201":
+          description: Modality created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcademyModalityResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/modalities/{modalityId}:
+    patch:
+      tags: [Modalities]
+      summary: Update modality
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/ModalityIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateModalityRequest"
+      responses:
+        "200":
+          description: Modality updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcademyModalityResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Modality not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags: [Modalities]
+      summary: Delete modality
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/ModalityIdParam"
+      responses:
+        "204":
+          description: Modality deleted
+        "400":
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Modality not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/academies/{academyId}/modalities/{modalityId}/master:
+    put:
+      tags: [Modalities]
+      summary: Set modality master
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/ModalityIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetMasterRequest"
+      responses:
+        "200":
+          description: Master updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcademyModalityResponse"
+
+  /v1/academies/{academyId}/modalities/{modalityId}/graduation-config:
+    put:
+      tags: [Modalities]
+      summary: Update modality graduation config
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/ModalityIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGraduationConfigRequest"
+      responses:
+        "200":
+          description: Graduation config updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcademyModalityResponse"
+
+  /v1/academies/{academyId}/modalities/{modalityId}/teachers:
+    get:
+      tags: [Modalities]
+      summary: Get teacher IDs assigned to modality
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/ModalityIdParam"
+      responses:
+        "200":
+          description: Teacher IDs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  teacher_ids:
+                    type: array
+                    items:
+                      type: string
+                      format: uuid
+                required: [teacher_ids]
+    put:
+      tags: [Modalities]
+      summary: Replace teacher IDs assigned to modality
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AcademyIdParam"
+        - $ref: "#/components/parameters/ModalityIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetTeachersRequest"
+      responses:
+        "200":
+          description: Teachers updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcademyModalityResponse"
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    AcademyIdParam:
+      in: path
+      name: academyId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ModalityIdParam:
+      in: path
+      name: modalityId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MemberIdParam:
+      in: path
+      name: memberId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    StudentModalityIdParam:
+      in: path
+      name: studentModalityId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ScheduleIdParam:
+      in: path
+      name: scheduleId
+      required: true
+      schema:
+        type: string
+        format: uuid
   schemas:
     RegisterRequest:
       type: object
@@ -314,6 +1496,23 @@ components:
         email:
           type: string
           format: email
+        display_name:
+          type: string
+        photo_url:
+          type: string
+          format: uri
+        role:
+          type: string
+        martial_art_type:
+          type: string
+        legacy_belt_id:
+          type: string
+        legacy_degree:
+          type: integer
+        legacy_total_classes:
+          type: integer
+        legacy_has_aparadores:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -328,16 +1527,585 @@ components:
       required: [error]
     UpdateUserRequest:
       type: object
+      minProperties: 1
       properties:
         username:
           type: string
           minLength: 3
           maxLength: 50
-      required: [username]
+        display_name:
+          type: string
+        photo_url:
+          type: string
+          format: uri
+        role:
+          type: string
+        martial_art_type:
+          type: string
+        legacy_belt_id:
+          type: string
+        legacy_degree:
+          type: integer
+        legacy_total_classes:
+          type: integer
+        legacy_has_aparadores:
+          type: boolean
     UserResponse:
       type: object
       properties:
         user:
           $ref: "#/components/schemas/User"
       required: [user]
+    AvatarUploadResponse:
+      type: object
+      properties:
+        photo_url:
+          type: string
+          format: uri
+        user:
+          $ref: "#/components/schemas/User"
+      required: [photo_url, user]
+    CreateAcademyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        website:
+          type: string
+          format: uri
+        modalities:
+          type: array
+          items:
+            type: string
+      required: [name, modalities]
+    UpdateAcademyRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        logo_url:
+          type: string
+          format: uri
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        website:
+          type: string
+          format: uri
+        is_active:
+          type: boolean
+    AcademyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        logo_url:
+          type: string
+          format: uri
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        website:
+          type: string
+          format: uri
+        subscription_plan:
+          type: string
+        subscription_started_at:
+          type: string
+          format: date-time
+        subscription_ends_at:
+          type: string
+          format: date-time
+        max_students:
+          type: integer
+        max_teachers:
+          type: integer
+        max_modalities:
+          type: integer
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        academy_modalities:
+          type: array
+          items:
+            $ref: "#/components/schemas/AcademyModalityResponse"
+      required: [id, owner_id, name]
+    AcademyStatsResponse:
+      type: object
+      properties:
+        approved_members:
+          type: integer
+        pending_requests:
+          type: integer
+      required: [approved_members, pending_requests]
+    MembershipStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [none, pending, approved, suspended, cancelled]
+      required: [status]
+    AcademyMemberResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        academy_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+        status:
+          type: string
+        joined_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        user:
+          type: object
+          properties:
+            email:
+              type: string
+              format: email
+            display_name:
+              type: string
+            photo_url:
+              type: string
+              format: uri
+      required: [id, academy_id, user_id, role, status]
+    EnrollStudentRequest:
+      type: object
+      properties:
+        academy_modality_id:
+          type: string
+          format: uuid
+        initial_belt_id:
+          type: string
+        initial_degree:
+          type: integer
+      required: [academy_modality_id, initial_belt_id]
+    UpdateStudentModalityRequest:
+      type: object
+      minProperties: 1
+      properties:
+        assigned_teacher_id:
+          type: string
+          format: uuid
+        total_classes:
+          type: integer
+        classes_at_current_belt:
+          type: integer
+    PromoteStudentRequest:
+      type: object
+      properties:
+        new_belt_id:
+          type: string
+        degree:
+          type: integer
+        notes:
+          type: string
+      required: [new_belt_id]
+    CreateCheckInRequest:
+      type: object
+      properties:
+        student_modality_id:
+          type: string
+          format: uuid
+        class_schedule_id:
+          type: string
+          format: uuid
+        class_type:
+          type: string
+        notes:
+          type: string
+      required: [student_modality_id]
+    AcademyStudentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        academy_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+        status:
+          type: string
+        joined_at:
+          type: string
+          format: date-time
+        user:
+          type: object
+          properties:
+            email:
+              type: string
+              format: email
+            display_name:
+              type: string
+            photo_url:
+              type: string
+              format: uri
+        modalities:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudentModalityResponse"
+      required: [id, academy_id, user_id, role, status, modalities]
+    StudentModalityResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        member_id:
+          type: string
+          format: uuid
+        modality_id:
+          type: string
+          format: uuid
+        martial_art_type:
+          type: string
+        assigned_teacher_id:
+          type: string
+          format: uuid
+        belt_id:
+          type: string
+        degree:
+          type: integer
+        promotion_date:
+          type: string
+          format: date-time
+        total_classes:
+          type: integer
+        classes_at_current_belt:
+          type: integer
+        enrolled_at:
+          type: string
+          format: date-time
+        graduation_history:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraduationHistoryResponse"
+      required: [id, member_id, modality_id, martial_art_type, belt_id, degree, total_classes, classes_at_current_belt]
+    GraduationHistoryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        student_modality_id:
+          type: string
+          format: uuid
+        belt_id:
+          type: string
+        degree:
+          type: integer
+        promoted_at:
+          type: string
+          format: date-time
+        promoted_by:
+          type: string
+          format: uuid
+        notes:
+          type: string
+      required: [id, student_modality_id, belt_id, degree, promoted_at]
+    CheckInResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        student_modality_id:
+          type: string
+          format: uuid
+        class_schedule_id:
+          type: string
+          format: uuid
+        checked_in_at:
+          type: string
+          format: date-time
+        checked_in_by:
+          type: string
+          format: uuid
+        class_type:
+          type: string
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required: [id, student_modality_id, checked_in_at, created_at]
+    CreateClassScheduleRequest:
+      type: object
+      properties:
+        modality_id:
+          type: string
+          format: uuid
+        instructor_id:
+          type: string
+          format: uuid
+        day_of_week:
+          type: integer
+          minimum: 0
+          maximum: 6
+        start_time:
+          type: string
+          example: "18:30:00"
+        end_time:
+          type: string
+          example: "20:00:00"
+        class_type:
+          type: string
+        is_active:
+          type: boolean
+        max_students:
+          type: integer
+        notes:
+          type: string
+      required: [day_of_week, start_time, end_time]
+    UpdateClassScheduleRequest:
+      type: object
+      minProperties: 1
+      properties:
+        modality_id:
+          type: string
+          format: uuid
+        instructor_id:
+          type: string
+          format: uuid
+        day_of_week:
+          type: integer
+          minimum: 0
+          maximum: 6
+        start_time:
+          type: string
+        end_time:
+          type: string
+        class_type:
+          type: string
+        is_active:
+          type: boolean
+        max_students:
+          type: integer
+        notes:
+          type: string
+    ClassScheduleResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        academy_id:
+          type: string
+          format: uuid
+        modality_id:
+          type: string
+          format: uuid
+        instructor_id:
+          type: string
+          format: uuid
+        day_of_week:
+          type: integer
+        start_time:
+          type: string
+        end_time:
+          type: string
+        class_type:
+          type: string
+        is_active:
+          type: boolean
+        max_students:
+          type: integer
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [id, academy_id, day_of_week, start_time, end_time, is_active]
+    CreateModalityRequest:
+      type: object
+      properties:
+        martial_art_type:
+          type: string
+        master_id:
+          type: string
+          format: uuid
+        use_default_graduation:
+          type: boolean
+      required: [martial_art_type]
+    UpdateModalityRequest:
+      type: object
+      minProperties: 1
+      properties:
+        master_id:
+          type: string
+          format: uuid
+        use_default_graduation:
+          type: boolean
+        is_active:
+          type: boolean
+    SetMasterRequest:
+      type: object
+      properties:
+        master_id:
+          type: string
+          format: uuid
+    SetTeachersRequest:
+      type: object
+      properties:
+        teacher_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required: [teacher_ids]
+    UpdateGraduationConfigRequest:
+      type: object
+      properties:
+        use_default_graduation:
+          type: boolean
+        belt_configs:
+          type: array
+          items:
+            $ref: "#/components/schemas/BeltConfigRequest"
+      required: [use_default_graduation, belt_configs]
+    BeltConfigRequest:
+      type: object
+      properties:
+        belt_id:
+          type: string
+        belt_name:
+          type: string
+        min_classes:
+          type: integer
+        min_months:
+          type: integer
+        min_classes_per_degree:
+          type: integer
+        requires_exam:
+          type: boolean
+        exam_fee:
+          type: number
+          format: double
+        notes:
+          type: string
+      required: [belt_id, min_classes, requires_exam]
+    AcademyModalityResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        academy_id:
+          type: string
+          format: uuid
+        martial_art_type:
+          type: string
+        master_id:
+          type: string
+          format: uuid
+        use_default_graduation:
+          type: boolean
+        graduation_updated_at:
+          type: string
+          format: date-time
+        is_active:
+          type: boolean
+        teacher_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        belt_configs:
+          type: array
+          items:
+            $ref: "#/components/schemas/BeltConfigResponse"
+      required: [id, academy_id, martial_art_type]
+    BeltConfigResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        modality_id:
+          type: string
+          format: uuid
+        belt_id:
+          type: string
+        belt_name:
+          type: string
+        min_classes:
+          type: integer
+        min_months:
+          type: integer
+        min_classes_per_degree:
+          type: integer
+        requires_exam:
+          type: boolean
+        exam_fee:
+          type: number
+          format: double
+        notes:
+          type: string
+      required: [id, modality_id, belt_id]
 

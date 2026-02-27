@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -17,7 +18,27 @@ type User struct {
 	Username     string
 	Email        string
 	PasswordHash string
+	DisplayName  string
+	PhotoURL     string
+	Role         string
+	MartialArt   string
+	LegacyBeltID string
+	LegacyDegree int
+	LegacyTotal  int
+	HasAparador  *bool
 	CreatedAt    time.Time
+}
+
+type UpdateUserProfileInput struct {
+	Username           *string
+	DisplayName        *string
+	PhotoURL           *string
+	Role               *string
+	MartialArtType     *string
+	LegacyBeltID       *string
+	LegacyDegree       *int
+	LegacyTotalClasses *int
+	LegacyHasAparador  *bool
 }
 
 var ErrUserNotFound = errors.New("user not found")
@@ -34,34 +55,98 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 
 func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	row := r.pool.QueryRow(ctx, `
-SELECT id, COALESCE(username, '') AS username, email, password_hash, created_at
+SELECT
+  id,
+  COALESCE(username, '') AS username,
+  email,
+  password_hash,
+  COALESCE(display_name, '') AS display_name,
+  COALESCE(photo_url, '') AS photo_url,
+  COALESCE(role, 'student') AS role,
+  COALESCE(martial_art_type, '') AS martial_art_type,
+  COALESCE(legacy_belt_id, '') AS legacy_belt_id,
+  COALESCE(legacy_degree, 0) AS legacy_degree,
+  COALESCE(legacy_total_classes, 0) AS legacy_total_classes,
+  legacy_has_aparadores,
+  created_at
 FROM users
 WHERE id = $1
 `, id)
 
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt); err != nil {
+	var hasAparadores sql.NullBool
+	if err := row.Scan(
+		&u.ID,
+		&u.Username,
+		&u.Email,
+		&u.PasswordHash,
+		&u.DisplayName,
+		&u.PhotoURL,
+		&u.Role,
+		&u.MartialArt,
+		&u.LegacyBeltID,
+		&u.LegacyDegree,
+		&u.LegacyTotal,
+		&hasAparadores,
+		&u.CreatedAt,
+	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+	if hasAparadores.Valid {
+		v := hasAparadores.Bool
+		u.HasAparador = &v
 	}
 	return &u, nil
 }
 
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*User, error) {
 	row := r.pool.QueryRow(ctx, `
-SELECT id, COALESCE(username, '') AS username, email, password_hash, created_at
+SELECT
+  id,
+  COALESCE(username, '') AS username,
+  email,
+  password_hash,
+  COALESCE(display_name, '') AS display_name,
+  COALESCE(photo_url, '') AS photo_url,
+  COALESCE(role, 'student') AS role,
+  COALESCE(martial_art_type, '') AS martial_art_type,
+  COALESCE(legacy_belt_id, '') AS legacy_belt_id,
+  COALESCE(legacy_degree, 0) AS legacy_degree,
+  COALESCE(legacy_total_classes, 0) AS legacy_total_classes,
+  legacy_has_aparadores,
+  created_at
 FROM users
 WHERE email = $1
 `, email)
 
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt); err != nil {
+	var hasAparadores sql.NullBool
+	if err := row.Scan(
+		&u.ID,
+		&u.Username,
+		&u.Email,
+		&u.PasswordHash,
+		&u.DisplayName,
+		&u.PhotoURL,
+		&u.Role,
+		&u.MartialArt,
+		&u.LegacyBeltID,
+		&u.LegacyDegree,
+		&u.LegacyTotal,
+		&hasAparadores,
+		&u.CreatedAt,
+	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("get user by email: %w", err)
+	}
+	if hasAparadores.Valid {
+		v := hasAparadores.Bool
+		u.HasAparador = &v
 	}
 	return &u, nil
 }
@@ -75,11 +160,39 @@ func (r *UserRepository) Create(ctx context.Context, username string, email stri
 	row := r.pool.QueryRow(ctx, `
 INSERT INTO users (id, username, email, password_hash)
 VALUES ($1, $2, $3, $4)
-RETURNING id, username, email, password_hash, created_at
+RETURNING
+  id,
+  username,
+  email,
+  password_hash,
+  COALESCE(display_name, '') AS display_name,
+  COALESCE(photo_url, '') AS photo_url,
+  COALESCE(role, 'student') AS role,
+  COALESCE(martial_art_type, '') AS martial_art_type,
+  COALESCE(legacy_belt_id, '') AS legacy_belt_id,
+  COALESCE(legacy_degree, 0) AS legacy_degree,
+  COALESCE(legacy_total_classes, 0) AS legacy_total_classes,
+  legacy_has_aparadores,
+  created_at
 `, id, username, email, passwordHash)
 
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt); err != nil {
+	var hasAparadores sql.NullBool
+	if err := row.Scan(
+		&u.ID,
+		&u.Username,
+		&u.Email,
+		&u.PasswordHash,
+		&u.DisplayName,
+		&u.PhotoURL,
+		&u.Role,
+		&u.MartialArt,
+		&u.LegacyBeltID,
+		&u.LegacyDegree,
+		&u.LegacyTotal,
+		&hasAparadores,
+		&u.CreatedAt,
+	); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			if pgErr.ConstraintName == "users_username_key" {
@@ -89,20 +202,74 @@ RETURNING id, username, email, password_hash, created_at
 		}
 		return nil, fmt.Errorf("create user: %w", err)
 	}
+	if hasAparadores.Valid {
+		v := hasAparadores.Bool
+		u.HasAparador = &v
+	}
 	return &u, nil
 }
 
 func (r *UserRepository) Update(ctx context.Context, id uuid.UUID, username string) (*User, error) {
+	return r.UpdateProfile(ctx, id, UpdateUserProfileInput{
+		Username: &username,
+	})
+}
+
+func (r *UserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, in UpdateUserProfileInput) (*User, error) {
 	row := r.pool.QueryRow(ctx, `
 UPDATE users
-SET username = $2
+SET
+  username = COALESCE($2, username),
+  display_name = COALESCE($3, display_name),
+  photo_url = COALESCE($4, photo_url),
+  role = COALESCE($5, role),
+  martial_art_type = COALESCE($6, martial_art_type),
+  legacy_belt_id = COALESCE($7, legacy_belt_id),
+  legacy_degree = COALESCE($8, legacy_degree),
+  legacy_total_classes = COALESCE($9, legacy_total_classes),
+  legacy_has_aparadores = COALESCE($10, legacy_has_aparadores)
 WHERE id = $1
-RETURNING id, username, created_at, email
-`, id, username)
+RETURNING
+  id,
+  COALESCE(username, '') AS username,
+  email,
+  password_hash,
+  COALESCE(display_name, '') AS display_name,
+  COALESCE(photo_url, '') AS photo_url,
+  COALESCE(role, 'student') AS role,
+  COALESCE(martial_art_type, '') AS martial_art_type,
+  COALESCE(legacy_belt_id, '') AS legacy_belt_id,
+  COALESCE(legacy_degree, 0) AS legacy_degree,
+  COALESCE(legacy_total_classes, 0) AS legacy_total_classes,
+  legacy_has_aparadores,
+  created_at
+`, id, in.Username, in.DisplayName, in.PhotoURL, in.Role, in.MartialArtType, in.LegacyBeltID, in.LegacyDegree, in.LegacyTotalClasses, in.LegacyHasAparador)
 
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Email); err != nil {
+	var hasAparadores sql.NullBool
+	if err := row.Scan(
+		&u.ID,
+		&u.Username,
+		&u.Email,
+		&u.PasswordHash,
+		&u.DisplayName,
+		&u.PhotoURL,
+		&u.Role,
+		&u.MartialArt,
+		&u.LegacyBeltID,
+		&u.LegacyDegree,
+		&u.LegacyTotal,
+		&hasAparadores,
+		&u.CreatedAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
 		return nil, fmt.Errorf("update user: %w", err)
+	}
+	if hasAparadores.Valid {
+		v := hasAparadores.Bool
+		u.HasAparador = &v
 	}
 	return &u, nil
 }

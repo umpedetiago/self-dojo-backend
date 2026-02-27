@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../self-dojo-web"
+		},
+		{
+			"path": "../self-dojo-mobile"
 		}
 	],
 	"settings": {}
