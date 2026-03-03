@@ -958,6 +958,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /v1/me/check-ins:
+    post:
+      tags: [Students]
+      summary: Register check-in for authenticated user (auto-resolving student modality)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMyCheckInRequest"
+      responses:
+        "201":
+          description: Check-in created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckInResponse"
+        "400":
+          description: Invalid request or student not enrolled in modality
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Class schedule or student modality not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /v1/student-modalities/{studentModalityId}/check-ins:
     get:
       tags: [Students]
@@ -1785,6 +1823,17 @@ components:
         notes:
           type: string
       required: [student_modality_id]
+    CreateMyCheckInRequest:
+      type: object
+      properties:
+        class_schedule_id:
+          type: string
+          format: uuid
+        class_type:
+          type: string
+        notes:
+          type: string
+      required: [class_schedule_id]
     AcademyStudentResponse:
       type: object
       properties:

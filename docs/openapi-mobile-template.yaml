@@ -503,6 +503,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/CheckIn"
 
+  /v1/me/check-ins:
+    post:
+      tags: [CheckIns]
+      summary: Register check-in for authenticated user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMyCheckInRequest"
+      responses:
+        "201":
+          description: Check-in created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckIn"
+
   /v1/student-modalities/{studentModalityId}/check-ins:
     get:
       tags: [CheckIns]
@@ -1009,6 +1029,17 @@ components:
         notes:
           type: string
       required: [student_modality_id]
+    CreateMyCheckInRequest:
+      type: object
+      properties:
+        class_schedule_id:
+          type: string
+          format: uuid
+        class_type:
+          type: string
+        notes:
+          type: string
+      required: [class_schedule_id]
     CheckIn:
       type: object
       properties:

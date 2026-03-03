@@ -112,6 +112,12 @@ type createCheckInRequest struct {
 	Notes             *string    `json:"notes,omitempty"`
 }
 
+type createMyCheckInRequest struct {
+	ClassScheduleID string  `json:"class_schedule_id" binding:"required,uuid4"`
+	ClassType       *string `json:"class_type,omitempty"`
+	Notes           *string `json:"notes,omitempty"`
+}
+
 type listCheckInsQuery struct {
 	StartDate string `form:"startDate"`
 	EndDate   string `form:"endDate"`
@@ -712,6 +718,102 @@ func (h *AcademyHandler) CreateCheckIn(c *gin.Context) {
 		}
 		return
 	}
+	c.JSON(http.StatusCreated, checkInToMap(*item))
+}
+
+// CreateMyCheckIn permite que o aluno autenticado faça check-in em um horário,
+// resolvendo automaticamente o student_modality_id apropriado.
+func (h *AcademyHandler) CreateMyCheckIn(c *gin.Context) {
+	var req createMyCheckInRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
+		return
+	}
+
+	scheduleID, err := uuid.Parse(req.ClassScheduleID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid class_schedule_id"})
+		return
+	}
+
+	userID := middleware.MustGetUserID(c)
+
+	// Garante que o usuário pode acessar a academia do horário.
+	schedule, err := h.repo.GetClassScheduleForActor(c.Request.Context(), scheduleID, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrForbidden):
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		case errors.Is(err, repository.ErrClassScheduleNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "class schedule not found"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load class schedule"})
+		}
+		return
+	}
+
+	// Descobre as modalidades do aluno (student_modalities) aprovadas.
+	modalities, err := h.repo.ListUserStudentModalities(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load student modalities"})
+		return
+	}
+	if len(modalities) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "student not enrolled in any modality"})
+		return
+	}
+
+	var studentModalityID uuid.UUID
+
+	if schedule.ModalityID != nil {
+		for _, m := range modalities {
+			if m.ModalityID == *schedule.ModalityID {
+				studentModalityID = m.ID
+				break
+			}
+		}
+		if studentModalityID == uuid.Nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "student not enrolled in this modality"})
+			return
+		}
+	} else {
+		// Horário geral (sem modality_id) - usa a primeira modalidade do aluno.
+		studentModalityID = modalities[0].ID
+	}
+
+	input := repository.CreateCheckInInput{
+		StudentModalityID: studentModalityID,
+		ClassScheduleID:   &schedule.ID,
+	}
+
+	if req.ClassType != nil {
+		classType := strings.TrimSpace(*req.ClassType)
+		if classType != "" {
+			input.ClassType = &classType
+		}
+	}
+	if req.Notes != nil {
+		notes := strings.TrimSpace(*req.Notes)
+		if notes != "" {
+			input.Notes = &notes
+		}
+	}
+
+	item, err := h.repo.CreateCheckIn(c.Request.Context(), userID, input)
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrForbidden):
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		case errors.Is(err, repository.ErrStudentModalityNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "student modality not found"})
+		case errors.Is(err, repository.ErrClassScheduleNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "class schedule not found"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create check-in"})
+		}
+		return
+	}
+
 	c.JSON(http.StatusCreated, checkInToMap(*item))
 }
 

@@ -1088,6 +1088,29 @@ ORDER BY start_time ASC
 	return out, rows.Err()
 }
 
+// GetClassScheduleForActor retorna um horário específico garantindo que o ator
+// tenha permissão de acesso à academia do horário.
+func (r *AcademyRepository) GetClassScheduleForActor(ctx context.Context, scheduleID, actorUserID uuid.UUID) (*ClassSchedule, error) {
+	var academyID uuid.UUID
+	row := r.pool.QueryRow(ctx, `
+SELECT academy_id
+FROM class_schedules
+WHERE id = $1
+`, scheduleID)
+	if err := row.Scan(&academyID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrClassScheduleNotFound
+		}
+		return nil, fmt.Errorf("lookup class schedule academy: %w", err)
+	}
+
+	if err := r.assertCanAccessAcademy(ctx, academyID, actorUserID); err != nil {
+		return nil, err
+	}
+
+	return r.getClassScheduleByID(ctx, scheduleID)
+}
+
 func (r *AcademyRepository) CreateStudentGroup(ctx context.Context, academyID, ownerID uuid.UUID, in CreateStudentGroupInput) (*StudentGroup, error) {
 	if _, err := r.assertOwnership(ctx, academyID, ownerID); err != nil {
 		return nil, err

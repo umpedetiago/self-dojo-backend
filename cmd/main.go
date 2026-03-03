@@ -116,6 +116,7 @@ func main() {
 		v1.GET("/student-modalities/:studentModalityId/graduation-history", academyHandler.ListGraduationHistory)
 		v1.GET("/student-modalities/:studentModalityId/check-ins", academyHandler.ListCheckIns)
 		v1.POST("/check-ins", academyHandler.CreateCheckIn)
+		v1.POST("/me/check-ins", academyHandler.CreateMyCheckIn)
 		v1.POST("/academies/:academyId/class-schedules", academyHandler.CreateClassSchedule)
 		v1.GET("/academies/:academyId/class-schedules", academyHandler.ListClassSchedules)
 		v1.GET("/academies/:academyId/class-schedules/available-for-checkin", academyHandler.ListAvailableSchedulesForCheckIn)
