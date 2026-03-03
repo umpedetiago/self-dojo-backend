@@ -15,6 +15,7 @@ import (
 
 type AuthHandler struct {
 	users          *repository.UserRepository
+	academies      *repository.AcademyRepository
 	passwordResets *repository.PasswordResetRepository
 	emailSender    email.Sender // nil = sem Resend; forgot-password retorna o token na resposta
 	avatarStorage  storage.Provider
@@ -23,9 +24,10 @@ type AuthHandler struct {
 	resetTokenTTL  time.Duration
 }
 
-func NewAuthHandler(users *repository.UserRepository, passwordResets *repository.PasswordResetRepository, emailSender email.Sender, avatarStorage storage.Provider, jwtSecret string) *AuthHandler {
+func NewAuthHandler(users *repository.UserRepository, academies *repository.AcademyRepository, passwordResets *repository.PasswordResetRepository, emailSender email.Sender, avatarStorage storage.Provider, jwtSecret string) *AuthHandler {
 	return &AuthHandler{
 		users:          users,
+		academies:      academies,
 		passwordResets: passwordResets,
 		emailSender:    emailSender,
 		avatarStorage:  avatarStorage,

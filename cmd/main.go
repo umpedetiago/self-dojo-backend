@@ -75,7 +75,7 @@ func main() {
 		avatarStorage = supabaseStorage
 	}
 
-	authHandler := handlers.NewAuthHandler(userRepo, passwordResetRepo, emailSender, avatarStorage, cfg.JWTSecret)
+	authHandler := handlers.NewAuthHandler(userRepo, academyRepo, passwordResetRepo, emailSender, avatarStorage, cfg.JWTSecret)
 	academyHandler := handlers.NewAcademyHandler(academyRepo)
 
 	auth := server.Group("/auth")

@@ -1505,14 +1505,34 @@ components:
           type: string
         martial_art_type:
           type: string
-        legacy_belt_id:
+        belt_id:
           type: string
-        legacy_degree:
+        degree:
           type: integer
-        legacy_total_classes:
+        total_classes:
           type: integer
-        legacy_has_aparadores:
+        has_aparadores:
           type: boolean
+        primary_student_modality_id:
+          type: string
+          format: uuid
+          description: ID da modalidade principal (student_modalities) usada como fonte para os campos top-level.
+        student_modalities:
+          type: array
+          description: Modalidades em que o usuário está matriculado (fonte principal de graduação/progresso no mobile).
+          items:
+            $ref: "#/components/schemas/StudentModalityResponse"
+        academy_id:
+          type: string
+          format: uuid
+          description: Conveniência — academy_id derivado da membership do aluno (se existir).
+        academy_status:
+          type: string
+          description: Conveniência — status da membership do aluno (pending/approved/etc).
+        joined_at:
+          type: string
+          format: date-time
+          description: Conveniência — data de entrada na academia (se existir).
         createdAt:
           type: string
           format: date-time
@@ -1542,14 +1562,6 @@ components:
           type: string
         martial_art_type:
           type: string
-        legacy_belt_id:
-          type: string
-        legacy_degree:
-          type: integer
-        legacy_total_classes:
-          type: integer
-        legacy_has_aparadores:
-          type: boolean
     UserResponse:
       type: object
       properties:

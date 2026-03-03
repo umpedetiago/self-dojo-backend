@@ -523,6 +523,22 @@ WHERE academy_id = $1 AND user_id = $2
 	return &m, nil
 }
 
+func (r *AcademyRepository) GetAcademyMemberByID(ctx context.Context, memberID uuid.UUID) (*AcademyMember, error) {
+	row := r.pool.QueryRow(ctx, `
+SELECT id, academy_id, user_id, role, status, joined_at, created_at, updated_at
+FROM academy_members
+WHERE id = $1
+`, memberID)
+	var m AcademyMember
+	if err := row.Scan(&m.ID, &m.AcademyID, &m.UserID, &m.Role, &m.Status, &m.JoinedAt, &m.CreatedAt, &m.UpdatedAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrMembershipNotFound
+		}
+		return nil, fmt.Errorf("get membership by id: %w", err)
+	}
+	return &m, nil
+}
+
 func (r *AcademyRepository) CreateMembershipRequest(ctx context.Context, academyID, userID uuid.UUID) (*AcademyMemberWithUser, error) {
 	// Ensure academy exists
 	if _, err := r.GetByID(ctx, academyID); err != nil {
@@ -1550,6 +1566,44 @@ ORDER BY am.martial_art_type ASC
 			&s.PromotionDate, &s.TotalClasses, &s.ClassesAtCurrentBelt, &s.EnrolledAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan student modality: %w", err)
+		}
+		history, err := r.listGraduationHistoryByStudentModality(ctx, s.ID)
+		if err != nil {
+			return nil, err
+		}
+		s.GraduationHistory = history
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// ListUserStudentModalities retorna todas as modalidades em que o usuário está
+// matriculado (status approved), já com histórico de graduações carregado.
+func (r *AcademyRepository) ListUserStudentModalities(ctx context.Context, userID uuid.UUID) ([]StudentModality, error) {
+	rows, err := r.pool.Query(ctx, `
+SELECT
+  sm.id, sm.member_id, sm.modality_id, am.martial_art_type, sm.assigned_teacher_id, sm.belt_id, sm.degree,
+  sm.promotion_date, sm.total_classes, sm.classes_at_current_belt, sm.enrolled_at
+FROM academy_members m
+JOIN student_modalities sm ON sm.member_id = m.id
+JOIN academy_modalities am ON am.id = sm.modality_id
+WHERE m.user_id = $1
+  AND m.status = 'approved'
+ORDER BY am.martial_art_type ASC, sm.enrolled_at ASC
+`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list student modalities by user: %w", err)
+	}
+	defer rows.Close()
+
+	var out []StudentModality
+	for rows.Next() {
+		var s StudentModality
+		if err := rows.Scan(
+			&s.ID, &s.MemberID, &s.ModalityID, &s.MartialArtType, &s.AssignedTeacherID, &s.BeltID, &s.Degree,
+			&s.PromotionDate, &s.TotalClasses, &s.ClassesAtCurrentBelt, &s.EnrolledAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan student modality by user: %w", err)
 		}
 		history, err := r.listGraduationHistoryByStudentModality(ctx, s.ID)
 		if err != nil {

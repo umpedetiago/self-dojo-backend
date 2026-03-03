@@ -735,6 +735,8 @@ components:
         id:
           type: string
           format: uuid
+        username:
+          type: string
         email:
           type: string
           format: email
@@ -747,7 +749,35 @@ components:
           type: string
         martial_art_type:
           $ref: "#/components/schemas/MartialArtType"
-      required: [id, email]
+        belt_id:
+          type: string
+        degree:
+          type: integer
+        total_classes:
+          type: integer
+        has_aparadores:
+          type: boolean
+        primary_student_modality_id:
+          type: string
+          format: uuid
+        student_modalities:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudentModality"
+        academy_id:
+          type: string
+          format: uuid
+        academy_status:
+          type: string
+        joined_at:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        # TODO: adicionar campo "graduation_history" (array) com o histórico
+        # de graduações do aluno quando estiver disponível na API.
+      required: [id, username, email, createdAt]
     UpdateMeRequest:
       type: object
       properties:
@@ -757,14 +787,6 @@ components:
           type: string
         martial_art_type:
           $ref: "#/components/schemas/MartialArtType"
-        legacy_belt_id:
-          type: string
-        legacy_degree:
-          type: integer
-        legacy_total_classes:
-          type: integer
-        legacy_has_aparadores:
-          type: boolean
     CreateAcademyRequest:
       type: object
       properties:

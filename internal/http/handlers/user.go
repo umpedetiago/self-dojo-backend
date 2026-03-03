@@ -16,33 +16,71 @@ import (
 )
 
 type updateRequest struct {
-	Username           *string `json:"username,omitempty" binding:"omitempty,min=3,max=50"`
-	DisplayName        *string `json:"display_name,omitempty"`
-	PhotoURL           *string `json:"photo_url,omitempty"`
-	Role               *string `json:"role,omitempty"`
-	MartialArtType     *string `json:"martial_art_type,omitempty"`
-	LegacyBeltID       *string `json:"legacy_belt_id,omitempty"`
-	LegacyDegree       *int    `json:"legacy_degree,omitempty"`
-	LegacyTotalClasses *int    `json:"legacy_total_classes,omitempty"`
-	LegacyHasAparador  *bool   `json:"legacy_has_aparadores,omitempty"`
+	Username       *string `json:"username,omitempty" binding:"omitempty,min=3,max=50"`
+	DisplayName    *string `json:"display_name,omitempty"`
+	PhotoURL       *string `json:"photo_url,omitempty"`
+	Role           *string `json:"role,omitempty"`
+	MartialArtType *string `json:"martial_art_type,omitempty"`
 }
 
 func mapUserResponse(u *repository.User) gin.H {
 	resp := gin.H{
-		"id":                   u.ID.String(),
-		"username":             u.Username,
-		"email":                u.Email,
-		"createdAt":            u.CreatedAt,
-		"display_name":         u.DisplayName,
-		"photo_url":            u.PhotoURL,
-		"role":                 u.Role,
-		"martial_art_type":     u.MartialArt,
-		"legacy_belt_id":       u.LegacyBeltID,
-		"legacy_degree":        u.LegacyDegree,
-		"legacy_total_classes": u.LegacyTotal,
+		"id":               u.ID.String(),
+		"username":         u.Username,
+		"email":            u.Email,
+		"createdAt":        u.CreatedAt,
+		"display_name":     u.DisplayName,
+		"photo_url":        u.PhotoURL,
+		"role":             u.Role,
+		"martial_art_type": u.MartialArt,
 	}
 	if u.HasAparador != nil {
-		resp["legacy_has_aparadores"] = *u.HasAparador
+		resp["has_aparadores"] = *u.HasAparador
+	}
+	return resp
+}
+
+func mapGraduationHistoryItemResponse(h repository.GraduationHistoryItem) gin.H {
+	resp := gin.H{
+		"id":                 h.ID.String(),
+		"student_modality_id": h.StudentModalityID.String(),
+		"belt_id":            h.BeltID,
+		"degree":             h.Degree,
+		"promoted_at":        h.PromotedAt,
+		"notes":              h.Notes,
+	}
+	if h.PromotedBy != nil {
+		resp["promoted_by"] = h.PromotedBy.String()
+	}
+	return resp
+}
+
+func mapStudentModalityResponse(m repository.StudentModality) gin.H {
+	resp := gin.H{
+		"id":                     m.ID.String(),
+		"member_id":              m.MemberID.String(),
+		"modality_id":            m.ModalityID.String(),
+		"martial_art_type":       m.MartialArtType,
+		"belt_id":                m.BeltID,
+		"degree":                 m.Degree,
+		"total_classes":          m.TotalClasses,
+		"classes_at_current_belt": m.ClassesAtCurrentBelt,
+		"enrolled_at":            m.EnrolledAt,
+	}
+	if m.AssignedTeacherID != nil {
+		resp["assigned_teacher_id"] = m.AssignedTeacherID.String()
+	}
+	if m.PromotionDate != nil {
+		resp["promotion_date"] = *m.PromotionDate
+	}
+	if len(m.GraduationHistory) > 0 {
+		items := make([]gin.H, 0, len(m.GraduationHistory))
+		for _, it := range m.GraduationHistory {
+			items = append(items, mapGraduationHistoryItemResponse(it))
+		}
+		resp["graduation_history"] = items
+	} else {
+		resp["graduation_history"] = []any{}
 	}
 	return resp
 }
@@ -54,7 +92,58 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
-	c.JSON(http.StatusOK, mapUserResponse(u))
+	resp := mapUserResponse(u)
+
+	if h.academies != nil {
+		if modalities, err := h.academies.ListUserStudentModalities(c.Request.Context(), userID); err == nil {
+			if len(modalities) > 0 {
+				// Tenta priorizar a modalidade que bate com martial_art_type do usuário.
+				var chosen *repository.StudentModality
+				if u.MartialArt != "" {
+					for i := range modalities {
+						if modalities[i].MartialArtType == u.MartialArt {
+							chosen = &modalities[i]
+							break
+						}
+					}
+				}
+				// Se não encontrou por tipo, usa a primeira modalidade.
+				if chosen == nil {
+					chosen = &modalities[0]
+				}
+
+				resp["primary_student_modality_id"] = chosen.ID.String()
+
+				// Retorna as modalidades agregadas (fonte principal de graduação/progresso).
+				out := make([]gin.H, 0, len(modalities))
+				for _, m := range modalities {
+					out = append(out, mapStudentModalityResponse(m))
+				}
+				resp["student_modalities"] = out
+
+				// Mantém compatibilidade: também preenche campos top-level com a modalidade escolhida.
+				if chosen.BeltID != "" {
+					resp["martial_art_type"] = chosen.MartialArtType
+					resp["belt_id"] = chosen.BeltID
+					resp["degree"] = chosen.Degree
+					resp["total_classes"] = chosen.TotalClasses
+				}
+
+				// Conveniência: retorna dados mínimos da membership/academia do aluno.
+				if member, err := h.academies.GetAcademyMemberByID(c.Request.Context(), chosen.MemberID); err == nil {
+					resp["academy_id"] = member.AcademyID.String()
+					resp["academy_status"] = member.Status
+					if member.JoinedAt != nil {
+						resp["joined_at"] = *member.JoinedAt
+					}
+				}
+			} else {
+				resp["student_modalities"] = []any{}
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 func (h *AuthHandler) Update(c *gin.Context) {
@@ -68,25 +157,17 @@ func (h *AuthHandler) Update(c *gin.Context) {
 		req.DisplayName == nil &&
 		req.PhotoURL == nil &&
 		req.Role == nil &&
-		req.MartialArtType == nil &&
-		req.LegacyBeltID == nil &&
-		req.LegacyDegree == nil &&
-		req.LegacyTotalClasses == nil &&
-		req.LegacyHasAparador == nil {
+		req.MartialArtType == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one field is required"})
 		return
 	}
 
 	u, err := h.users.UpdateProfile(c.Request.Context(), userID, repository.UpdateUserProfileInput{
-		Username:           req.Username,
-		DisplayName:        req.DisplayName,
-		PhotoURL:           req.PhotoURL,
-		Role:               req.Role,
-		MartialArtType:     req.MartialArtType,
-		LegacyBeltID:       req.LegacyBeltID,
-		LegacyDegree:       req.LegacyDegree,
-		LegacyTotalClasses: req.LegacyTotalClasses,
-		LegacyHasAparador:  req.LegacyHasAparador,
+		Username:       req.Username,
+		DisplayName:    req.DisplayName,
+		PhotoURL:       req.PhotoURL,
+		Role:           req.Role,
+		MartialArtType: req.MartialArtType,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
