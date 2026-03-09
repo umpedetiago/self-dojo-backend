@@ -23,6 +23,7 @@ var ErrStudentModalityNotFound = errors.New("student modality not found")
 var ErrStudentAlreadyEnrolled = errors.New("student already enrolled in modality")
 var ErrClassScheduleNotFound = errors.New("class schedule not found")
 var ErrStudentGroupNotFound = errors.New("student group not found")
+var ErrDuplicatePromotion = errors.New("duplicate promotion for same belt and degree")
 
 type Academy struct {
 	ID                    uuid.UUID
@@ -822,6 +823,26 @@ func (r *AcademyRepository) PromoteStudent(ctx context.Context, studentModalityI
 	notes := ""
 	if in.Notes != nil {
 		notes = *in.Notes
+	}
+
+	// Verifica se a última promoção já possui a mesma faixa e grau.
+	var lastBeltID string
+	var lastDegree int
+	err = tx.QueryRow(ctx, `
+SELECT belt_id, degree
+FROM graduation_history
+WHERE student_modality_id = $1
+ORDER BY promoted_at DESC
+LIMIT 1
+`, studentModalityID).Scan(&lastBeltID, &lastDegree)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("load last graduation history: %w", err)
+	}
+	if err == nil {
+		newBeltTrimmed := strings.TrimSpace(in.NewBeltID)
+		if lastBeltID == newBeltTrimmed && lastDegree == in.Degree {
+			return nil, ErrDuplicatePromotion
+		}
 	}
 
 	_, err = tx.Exec(ctx, `

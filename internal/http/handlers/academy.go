@@ -660,6 +660,8 @@ func (h *AcademyHandler) PromoteStudent(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		case errors.Is(err, repository.ErrStudentModalityNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "student modality not found"})
+		case errors.Is(err, repository.ErrDuplicatePromotion):
+			c.JSON(http.StatusConflict, gin.H{"error": "já existe um registro de graduação com a mesma faixa e grau como último registro"})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to promote student"})
 		}
