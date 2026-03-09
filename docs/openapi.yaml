@@ -1966,6 +1966,12 @@ components:
           type: integer
           minimum: 0
           maximum: 6
+        days_of_week:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
         start_time:
           type: string
           example: "18:30:00"
@@ -1995,6 +2001,12 @@ components:
           type: integer
           minimum: 0
           maximum: 6
+        days_of_week:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
         start_time:
           type: string
         end_time:
@@ -2024,6 +2036,10 @@ components:
           format: uuid
         day_of_week:
           type: integer
+        days_of_week:
+          type: array
+          items:
+            type: integer
         start_time:
           type: string
         end_time:

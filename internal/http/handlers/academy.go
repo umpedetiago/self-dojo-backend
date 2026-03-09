@@ -127,6 +127,7 @@ type createClassScheduleRequest struct {
 	ModalityID   *uuid.UUID `json:"modality_id,omitempty"`
 	InstructorID *uuid.UUID `json:"instructor_id,omitempty"`
 	DayOfWeek    int        `json:"day_of_week" binding:"required"`
+	DaysOfWeek   []int      `json:"days_of_week,omitempty"`
 	StartTime    string     `json:"start_time" binding:"required"`
 	EndTime      string     `json:"end_time" binding:"required"`
 	ClassType    *string    `json:"class_type,omitempty"`
@@ -139,6 +140,7 @@ type updateClassScheduleRequest struct {
 	ModalityID   *uuid.UUID `json:"modality_id,omitempty"`
 	InstructorID *uuid.UUID `json:"instructor_id,omitempty"`
 	DayOfWeek    *int       `json:"day_of_week,omitempty"`
+	DaysOfWeek   []int      `json:"days_of_week,omitempty"`
 	StartTime    *string    `json:"start_time,omitempty"`
 	EndTime      *string    `json:"end_time,omitempty"`
 	ClassType    *string    `json:"class_type,omitempty"`
@@ -882,6 +884,7 @@ func (h *AcademyHandler) CreateClassSchedule(c *gin.Context) {
 		ModalityID:   req.ModalityID,
 		InstructorID: req.InstructorID,
 		DayOfWeek:    req.DayOfWeek,
+		DaysOfWeek:   req.DaysOfWeek,
 		StartTime:    req.StartTime,
 		EndTime:      req.EndTime,
 		ClassType:    req.ClassType,
@@ -984,6 +987,7 @@ func (h *AcademyHandler) UpdateClassSchedule(c *gin.Context) {
 		ModalityID:   req.ModalityID,
 		InstructorID: req.InstructorID,
 		DayOfWeek:    req.DayOfWeek,
+		DaysOfWeek:   req.DaysOfWeek,
 		StartTime:    req.StartTime,
 		EndTime:      req.EndTime,
 		ClassType:    req.ClassType,
@@ -1728,6 +1732,7 @@ func classScheduleToMap(s repository.ClassSchedule) gin.H {
 		"modality_id":   s.ModalityID,
 		"instructor_id": s.InstructorID,
 		"day_of_week":   s.DayOfWeek,
+		"days_of_week":  s.DaysOfWeek,
 		"start_time":    s.StartTime,
 		"end_time":      s.EndTime,
 		"class_type":    s.ClassType,

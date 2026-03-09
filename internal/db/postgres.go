@@ -265,6 +265,9 @@ CREATE TABLE IF NOT EXISTS class_schedules (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE class_schedules
+  ADD COLUMN IF NOT EXISTS days_of_week INTEGER[];
 `)
 	if err != nil {
 		return fmt.Errorf("ensure schema (class_schedules): %w", err)

@@ -168,6 +168,7 @@ type ClassSchedule struct {
 	ModalityID   *uuid.UUID
 	InstructorID *uuid.UUID
 	DayOfWeek    int
+	DaysOfWeek   []int
 	StartTime    string
 	EndTime      string
 	ClassType    string
@@ -192,6 +193,7 @@ type CreateClassScheduleInput struct {
 	ModalityID   *uuid.UUID
 	InstructorID *uuid.UUID
 	DayOfWeek    int
+	DaysOfWeek   []int
 	StartTime    string
 	EndTime      string
 	ClassType    *string
@@ -204,6 +206,7 @@ type UpdateClassScheduleInput struct {
 	ModalityID   *uuid.UUID
 	InstructorID *uuid.UUID
 	DayOfWeek    *int
+	DaysOfWeek   []int
 	StartTime    *string
 	EndTime      *string
 	ClassType    *string
@@ -934,8 +937,27 @@ func (r *AcademyRepository) CreateClassSchedule(ctx context.Context, academyID, 
 	if _, err := r.assertOwnership(ctx, academyID, actorUserID); err != nil {
 		return nil, err
 	}
-	if in.DayOfWeek < 0 || in.DayOfWeek > 6 {
-		return nil, fmt.Errorf("day_of_week must be between 0 and 6")
+	if len(in.DaysOfWeek) > 0 {
+		for _, d := range in.DaysOfWeek {
+			if d < 0 || d > 6 {
+				return nil, fmt.Errorf("days_of_week must contain values between 0 and 6")
+			}
+		}
+	} else {
+		if in.DayOfWeek < 0 || in.DayOfWeek > 6 {
+			return nil, fmt.Errorf("day_of_week must be between 0 and 6")
+		}
+	}
+
+	dayOfWeek := in.DayOfWeek
+	if len(in.DaysOfWeek) > 0 {
+		// Para compatibilidade, mantemos um dia principal na coluna legada.
+		dayOfWeek = in.DaysOfWeek[0]
+	}
+
+	var daysOfWeek any = nil
+	if len(in.DaysOfWeek) > 0 {
+		daysOfWeek = in.DaysOfWeek
 	}
 	isActive := true
 	if in.IsActive != nil {
@@ -952,11 +974,11 @@ func (r *AcademyRepository) CreateClassSchedule(ctx context.Context, academyID, 
 
 	row := r.pool.QueryRow(ctx, `
 INSERT INTO class_schedules (
-  academy_id, modality_id, instructor_id, day_of_week, start_time, end_time, class_type, is_active, max_students, notes, created_at, updated_at
+  academy_id, modality_id, instructor_id, day_of_week, days_of_week, start_time, end_time, class_type, is_active, max_students, notes, created_at, updated_at
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),now())
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now())
 RETURNING id
-`, academyID, in.ModalityID, in.InstructorID, in.DayOfWeek, strings.TrimSpace(in.StartTime), strings.TrimSpace(in.EndTime), classType, isActive, in.MaxStudents, notes)
+`, academyID, in.ModalityID, in.InstructorID, dayOfWeek, daysOfWeek, strings.TrimSpace(in.StartTime), strings.TrimSpace(in.EndTime), classType, isActive, in.MaxStudents, notes)
 	var id uuid.UUID
 	if err := row.Scan(&id); err != nil {
 		return nil, fmt.Errorf("create class schedule: %w", err)
@@ -970,12 +992,16 @@ func (r *AcademyRepository) ListClassSchedules(ctx context.Context, academyID, a
 	}
 	rows, err := r.pool.Query(ctx, `
 SELECT
-  id, academy_id, modality_id, instructor_id, day_of_week, start_time::text, end_time::text, COALESCE(class_type, ''),
+  id, academy_id, modality_id, instructor_id, day_of_week, COALESCE(days_of_week, '{}')::int[], start_time::text, end_time::text, COALESCE(class_type, ''),
   is_active, max_students, COALESCE(notes, ''), created_at, updated_at
 FROM class_schedules
 WHERE academy_id = $1
   AND ($2::uuid IS NULL OR modality_id = $2)
-  AND ($3::int IS NULL OR day_of_week = $3)
+  AND (
+    $3::int IS NULL
+    OR day_of_week = $3
+    OR $3 = ANY(days_of_week)
+  )
   AND ($4::boolean IS NULL OR is_active = $4)
 ORDER BY day_of_week ASC, start_time ASC
 `, academyID, modalityID, dayOfWeek, isActive)
@@ -986,7 +1012,7 @@ ORDER BY day_of_week ASC, start_time ASC
 	var out []ClassSchedule
 	for rows.Next() {
 		var s ClassSchedule
-		if err := rows.Scan(&s.ID, &s.AcademyID, &s.ModalityID, &s.InstructorID, &s.DayOfWeek, &s.StartTime, &s.EndTime, &s.ClassType, &s.IsActive, &s.MaxStudents, &s.Notes, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.AcademyID, &s.ModalityID, &s.InstructorID, &s.DayOfWeek, &s.DaysOfWeek, &s.StartTime, &s.EndTime, &s.ClassType, &s.IsActive, &s.MaxStudents, &s.Notes, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan class schedule: %w", err)
 		}
 		out = append(out, s)
@@ -1000,13 +1026,13 @@ func (r *AcademyRepository) GetClassSchedule(ctx context.Context, academyID, sch
 	}
 	row := r.pool.QueryRow(ctx, `
 SELECT
-  id, academy_id, modality_id, instructor_id, day_of_week, start_time::text, end_time::text, COALESCE(class_type, ''),
+  id, academy_id, modality_id, instructor_id, day_of_week, COALESCE(days_of_week, '{}')::int[], start_time::text, end_time::text, COALESCE(class_type, ''),
   is_active, max_students, COALESCE(notes, ''), created_at, updated_at
 FROM class_schedules
 WHERE id = $1 AND academy_id = $2
 `, scheduleID, academyID)
 	var s ClassSchedule
-	if err := row.Scan(&s.ID, &s.AcademyID, &s.ModalityID, &s.InstructorID, &s.DayOfWeek, &s.StartTime, &s.EndTime, &s.ClassType, &s.IsActive, &s.MaxStudents, &s.Notes, &s.CreatedAt, &s.UpdatedAt); err != nil {
+	if err := row.Scan(&s.ID, &s.AcademyID, &s.ModalityID, &s.InstructorID, &s.DayOfWeek, &s.DaysOfWeek, &s.StartTime, &s.EndTime, &s.ClassType, &s.IsActive, &s.MaxStudents, &s.Notes, &s.CreatedAt, &s.UpdatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrClassScheduleNotFound
 		}
@@ -1019,22 +1045,32 @@ func (r *AcademyRepository) UpdateClassSchedule(ctx context.Context, academyID, 
 	if _, err := r.assertOwnership(ctx, academyID, actorUserID); err != nil {
 		return nil, err
 	}
+	var daysOfWeek any = nil
+	if len(in.DaysOfWeek) > 0 {
+		for _, d := range in.DaysOfWeek {
+			if d < 0 || d > 6 {
+				return nil, fmt.Errorf("days_of_week must contain values between 0 and 6")
+			}
+		}
+		daysOfWeek = in.DaysOfWeek
+	}
 	row := r.pool.QueryRow(ctx, `
 UPDATE class_schedules
 SET
   modality_id = COALESCE($3::uuid, modality_id),
   instructor_id = COALESCE($4::uuid, instructor_id),
   day_of_week = COALESCE($5::int, day_of_week),
-  start_time = COALESCE($6::text, start_time::text)::time,
-  end_time = COALESCE($7::text, end_time::text)::time,
-  class_type = COALESCE($8::text, class_type),
-  is_active = COALESCE($9::boolean, is_active),
-  max_students = COALESCE($10::int, max_students),
-  notes = COALESCE($11::text, notes),
+  days_of_week = COALESCE($6::int[], days_of_week),
+  start_time = COALESCE($7::text, start_time::text)::time,
+  end_time = COALESCE($8::text, end_time::text)::time,
+  class_type = COALESCE($9::text, class_type),
+  is_active = COALESCE($10::boolean, is_active),
+  max_students = COALESCE($11::int, max_students),
+  notes = COALESCE($12::text, notes),
   updated_at = now()
 WHERE id = $1 AND academy_id = $2
 RETURNING id
-`, scheduleID, academyID, in.ModalityID, in.InstructorID, in.DayOfWeek, in.StartTime, in.EndTime, in.ClassType, in.IsActive, in.MaxStudents, in.Notes)
+`, scheduleID, academyID, in.ModalityID, in.InstructorID, in.DayOfWeek, daysOfWeek, in.StartTime, in.EndTime, in.ClassType, in.IsActive, in.MaxStudents, in.Notes)
 	var id uuid.UUID
 	if err := row.Scan(&id); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1065,12 +1101,15 @@ func (r *AcademyRepository) ListAvailableSchedulesForCheckIn(ctx context.Context
 	}
 	rows, err := r.pool.Query(ctx, `
 SELECT
-  id, academy_id, modality_id, instructor_id, day_of_week, start_time::text, end_time::text, COALESCE(class_type, ''),
+  id, academy_id, modality_id, instructor_id, day_of_week, COALESCE(days_of_week, '{}')::int[], start_time::text, end_time::text, COALESCE(class_type, ''),
   is_active, max_students, COALESCE(notes, ''), created_at, updated_at
 FROM class_schedules
 WHERE academy_id = $1
-  AND day_of_week = $2
   AND is_active = true
+  AND (
+    day_of_week = $2
+    OR $2 = ANY(days_of_week)
+  )
 ORDER BY start_time ASC
 `, academyID, dayOfWeek)
 	if err != nil {
@@ -1080,7 +1119,7 @@ ORDER BY start_time ASC
 	var out []ClassSchedule
 	for rows.Next() {
 		var s ClassSchedule
-		if err := rows.Scan(&s.ID, &s.AcademyID, &s.ModalityID, &s.InstructorID, &s.DayOfWeek, &s.StartTime, &s.EndTime, &s.ClassType, &s.IsActive, &s.MaxStudents, &s.Notes, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.AcademyID, &s.ModalityID, &s.InstructorID, &s.DayOfWeek, &s.DaysOfWeek, &s.StartTime, &s.EndTime, &s.ClassType, &s.IsActive, &s.MaxStudents, &s.Notes, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan available class schedule: %w", err)
 		}
 		out = append(out, s)
@@ -1838,13 +1877,13 @@ WHERE id = $1
 func (r *AcademyRepository) getClassScheduleByID(ctx context.Context, scheduleID uuid.UUID) (*ClassSchedule, error) {
 	row := r.pool.QueryRow(ctx, `
 SELECT
-  id, academy_id, modality_id, instructor_id, day_of_week, start_time::text, end_time::text, COALESCE(class_type, ''),
+  id, academy_id, modality_id, instructor_id, day_of_week, COALESCE(days_of_week, '{}')::int[], start_time::text, end_time::text, COALESCE(class_type, ''),
   is_active, max_students, COALESCE(notes, ''), created_at, updated_at
 FROM class_schedules
 WHERE id = $1
 `, scheduleID)
 	var s ClassSchedule
-	if err := row.Scan(&s.ID, &s.AcademyID, &s.ModalityID, &s.InstructorID, &s.DayOfWeek, &s.StartTime, &s.EndTime, &s.ClassType, &s.IsActive, &s.MaxStudents, &s.Notes, &s.CreatedAt, &s.UpdatedAt); err != nil {
+	if err := row.Scan(&s.ID, &s.AcademyID, &s.ModalityID, &s.InstructorID, &s.DayOfWeek, &s.DaysOfWeek, &s.StartTime, &s.EndTime, &s.ClassType, &s.IsActive, &s.MaxStudents, &s.Notes, &s.CreatedAt, &s.UpdatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrClassScheduleNotFound
 		}

@@ -122,6 +122,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// Se o hash ainda não estiver no formato Argon2id, fazemos o rehash
+	// transparente e atualizamos o usuário no banco.
+	if !strings.HasPrefix(u.PasswordHash, "$argon2id$") {
+		if newHash, err := auth.HashPasswordArgon2(req.Password); err == nil {
+			_ = h.users.UpdatePassword(c.Request.Context(), u.ID, newHash)
+		}
+	}
+
 	token, err := auth.GenerateToken(u.ID, h.jwtSecret, h.tokenTTL)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create token"})
