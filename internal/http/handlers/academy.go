@@ -717,6 +717,8 @@ func (h *AcademyHandler) CreateCheckIn(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "student modality not found"})
 		case errors.Is(err, repository.ErrClassScheduleNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "class schedule not found"})
+		case errors.Is(err, repository.ErrDuplicateCheckIn):
+			c.JSON(http.StatusConflict, gin.H{"error": "check-in already exists for this class today"})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create check-in"})
 		}
@@ -812,6 +814,8 @@ func (h *AcademyHandler) CreateMyCheckIn(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "student modality not found"})
 		case errors.Is(err, repository.ErrClassScheduleNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "class schedule not found"})
+		case errors.Is(err, repository.ErrDuplicateCheckIn):
+			c.JSON(http.StatusConflict, gin.H{"error": "check-in already exists for this class today"})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create check-in"})
 		}

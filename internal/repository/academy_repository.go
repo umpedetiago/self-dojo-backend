@@ -24,6 +24,7 @@ var ErrStudentAlreadyEnrolled = errors.New("student already enrolled in modality
 var ErrClassScheduleNotFound = errors.New("class schedule not found")
 var ErrStudentGroupNotFound = errors.New("student group not found")
 var ErrDuplicatePromotion = errors.New("duplicate promotion for same belt and degree")
+var ErrDuplicateCheckIn = errors.New("duplicate check-in for class on same day")
 
 type Academy struct {
 	ID                    uuid.UUID
@@ -895,6 +896,25 @@ func (r *AcademyRepository) CreateCheckIn(ctx context.Context, actorUserID uuid.
 
 	if err := r.assertCheckInGroupRestriction(ctx, tx, in.StudentModalityID, in.ClassScheduleID); err != nil {
 		return nil, err
+	}
+
+	// Impede check-in duplicado para o mesmo aluno e mesma aula no mesmo dia.
+	if in.ClassScheduleID != nil {
+		var exists int
+		err = tx.QueryRow(ctx, `
+SELECT 1
+FROM check_ins
+WHERE student_modality_id = $1
+  AND class_schedule_id = $2
+  AND checked_in_at::date = now()::date
+LIMIT 1
+`, in.StudentModalityID, in.ClassScheduleID).Scan(&exists)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("check duplicate check-in: %w", err)
+		}
+		if err == nil {
+			return nil, ErrDuplicateCheckIn
+		}
 	}
 
 	row := tx.QueryRow(ctx, `
