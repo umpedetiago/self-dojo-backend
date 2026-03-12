@@ -138,7 +138,7 @@ func main() {
 		v1.PATCH("/academies/:academyId/modalities/:modalityId", academyHandler.UpdateModality)
 		v1.DELETE("/academies/:academyId/modalities/:modalityId", academyHandler.DeleteModality)
 		v1.PUT("/academies/:academyId/modalities/:modalityId/master", academyHandler.SetMaster)
-		v1.PUT("/academies/:academyId/modalities/:modalityId/graduation-config", academyHandler.UpdateGraduationConfig)
+		v1.PATCH("/academies/:academyId/modalities/:modalityId/graduation-config", academyHandler.UpdateGraduationConfig)
 		v1.GET("/academies/:academyId/modalities/:modalityId/teachers", academyHandler.GetTeachers)
 		v1.PUT("/academies/:academyId/modalities/:modalityId/teachers", academyHandler.SetTeachers)
 	}

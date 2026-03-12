@@ -1382,7 +1382,7 @@ paths:
                 $ref: "#/components/schemas/AcademyModalityResponse"
 
   /v1/academies/{academyId}/modalities/{modalityId}/graduation-config:
-    put:
+    patch:
       tags: [Modalities]
       summary: Update modality graduation config
       security:
