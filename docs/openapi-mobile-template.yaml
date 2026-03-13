@@ -795,6 +795,31 @@ components:
         createdAt:
           type: string
           format: date-time
+        # Campos agregados e informações de exibição para mobile
+        academy_name:
+          type: string
+          description: Nome da academia principal do aluno (se houver vínculo).
+        instructor_name:
+          type: string
+          description: Nome do professor/instrutor principal (opcional).
+        weight_category:
+          type: string
+          description: Categoria de peso informada pelo usuário (livre).
+        total_classes_all:
+          type: integer
+          description: Total de aulas somando todas as modalidades em que o aluno está matriculado.
+        classes_until_next_belt:
+          type: integer
+          description: Aulas restantes até a próxima faixa na modalidade principal (calculado pelo backend).
+        classes_until_next_degree:
+          type: integer
+          description: Aulas restantes até o próximo grau na faixa atual na modalidade principal (quando configurado).
+        training_time_days:
+          type: integer
+          description: Tempo total de treino em dias (aproximado).
+        competitions_count:
+          type: integer
+          description: Quantidade de competições registradas para o aluno.
         # TODO: adicionar campo "graduation_history" (array) com o histórico
         # de graduações do aluno quando estiver disponível na API.
       required: [id, username, email, createdAt]
@@ -985,6 +1010,16 @@ components:
           type: integer
         classes_at_current_belt:
           type: integer
+        # Valores calculados pelo backend (quando disponíveis)
+        classes_until_next_belt:
+          type: integer
+          description: Aulas restantes até a próxima faixa nesta modalidade.
+        classes_until_next_degree:
+          type: integer
+          description: Aulas restantes até o próximo grau nesta modalidade.
+        training_time_days:
+          type: integer
+          description: Tempo de treino nesta modalidade em dias (aproximado).
       required: [id, member_id, modality_id, belt_id]
     PromoteStudentRequest:
       type: object

@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -42,12 +44,12 @@ func mapUserResponse(u *repository.User) gin.H {
 
 func mapGraduationHistoryItemResponse(h repository.GraduationHistoryItem) gin.H {
 	resp := gin.H{
-		"id":                 h.ID.String(),
+		"id":                  h.ID.String(),
 		"student_modality_id": h.StudentModalityID.String(),
-		"belt_id":            h.BeltID,
-		"degree":             h.Degree,
-		"promoted_at":        h.PromotedAt,
-		"notes":              h.Notes,
+		"belt_id":             h.BeltID,
+		"degree":              h.Degree,
+		"promoted_at":         h.PromotedAt,
+		"notes":               h.Notes,
 	}
 	if h.PromotedBy != nil {
 		resp["promoted_by"] = h.PromotedBy.String()
@@ -57,15 +59,15 @@ func mapGraduationHistoryItemResponse(h repository.GraduationHistoryItem) gin.H 
 
 func mapStudentModalityResponse(m repository.StudentModality) gin.H {
 	resp := gin.H{
-		"id":                     m.ID.String(),
-		"member_id":              m.MemberID.String(),
-		"modality_id":            m.ModalityID.String(),
-		"martial_art_type":       m.MartialArtType,
-		"belt_id":                m.BeltID,
-		"degree":                 m.Degree,
-		"total_classes":          m.TotalClasses,
+		"id":                      m.ID.String(),
+		"member_id":               m.MemberID.String(),
+		"modality_id":             m.ModalityID.String(),
+		"martial_art_type":        m.MartialArtType,
+		"belt_id":                 m.BeltID,
+		"degree":                  m.Degree,
+		"total_classes":           m.TotalClasses,
 		"classes_at_current_belt": m.ClassesAtCurrentBelt,
-		"enrolled_at":            m.EnrolledAt,
+		"enrolled_at":             m.EnrolledAt,
 	}
 	if m.AssignedTeacherID != nil {
 		resp["assigned_teacher_id"] = m.AssignedTeacherID.String()
@@ -83,6 +85,72 @@ func mapStudentModalityResponse(m repository.StudentModality) gin.H {
 		resp["graduation_history"] = []any{}
 	}
 	return resp
+}
+
+// computeStudentModalityStats calcula valores agregados para uma student_modality,
+// como aulas restantes até a próxima faixa e tempo de treino em dias.
+// Usa configuração de graduação da academia quando disponível.
+func (h *AuthHandler) computeStudentModalityStats(ctx context.Context, m repository.StudentModality, now time.Time) (classesUntilNextBelt *int, trainingTimeDays *int) {
+	// Tempo de treino aproximado em dias (baseado em enrolled_at)
+	days := int(now.Sub(m.EnrolledAt).Hours() / 24)
+	if days < 0 {
+		days = 0
+	}
+	trainingTimeDays = &days
+
+	// Para calcular aulas até a próxima faixa, precisamos da configuração de graduação.
+	if h.academies == nil {
+		return nil, trainingTimeDays
+	}
+
+	modality, err := h.academies.GetModalityByID(ctx, m.ModalityID)
+	if err != nil || modality == nil {
+		return nil, trainingTimeDays
+	}
+
+	// Se a modalidade está configurada para usar a graduação padrão e não há
+	// belt_configs no banco, deixamos o cálculo para o cliente (fallback).
+	if modality.UseDefaultGraduaton && len(modality.BeltConfigs) == 0 {
+		return nil, trainingTimeDays
+	}
+
+	// Ordena as faixas configuradas por min_classes (ascendente) para inferir a ordem.
+	belts := make([]repository.BeltConfig, 0, len(modality.BeltConfigs))
+	belts = append(belts, modality.BeltConfigs...)
+	if len(belts) == 0 {
+		return nil, trainingTimeDays
+	}
+	sort.Slice(belts, func(i, j int) bool {
+		return belts[i].MinClasses < belts[j].MinClasses
+	})
+
+	// Encontra a posição da faixa atual e a próxima faixa configurada.
+	currentIdx := -1
+	for i, b := range belts {
+		if b.BeltID == m.BeltID {
+			currentIdx = i
+			break
+		}
+	}
+	if currentIdx == -1 || currentIdx >= len(belts)-1 {
+		// Não há próxima faixa configurada ou não encontramos a atual.
+		return nil, trainingTimeDays
+	}
+
+	nextBeltCfg := belts[currentIdx+1]
+	currentBeltCfg := belts[currentIdx]
+	if nextBeltCfg.MinClasses <= 0 {
+		return nil, trainingTimeDays
+	}
+
+	degreesInCurrentBelt := (currentBeltCfg.MinClasses / *currentBeltCfg.MinClassesPerDegree) - 1
+
+	remainingInCurrentBelt := currentBeltCfg.MinClasses - (degreesInCurrentBelt * *currentBeltCfg.MinClassesPerDegree) - m.ClassesAtCurrentBelt
+	if remainingInCurrentBelt < 0 {
+		remainingInCurrentBelt = 0
+	}
+
+	return &remainingInCurrentBelt, trainingTimeDays
 }
 
 func (h *AuthHandler) Me(c *gin.Context) {
@@ -114,12 +182,37 @@ func (h *AuthHandler) Me(c *gin.Context) {
 
 				resp["primary_student_modality_id"] = chosen.ID.String()
 
-				// Retorna as modalidades agregadas (fonte principal de graduação/progresso).
+				// Retorna as modalidades agregadas (fonte principal de graduação/progresso),
+				// já com estatísticas calculadas pelo backend quando possível.
 				out := make([]gin.H, 0, len(modalities))
+				var primaryClassesUntilNextBelt *int
+				var primaryTrainingTimeDays *int
+				totalClassesAll := 0
+				now := time.Now().UTC()
+
 				for _, m := range modalities {
-					out = append(out, mapStudentModalityResponse(m))
+					item := mapStudentModalityResponse(m)
+
+					classesUntilNextBelt, trainingTimeDays := h.computeStudentModalityStats(c.Request.Context(), m, now)
+					if classesUntilNextBelt != nil {
+						item["classes_until_next_belt"] = *classesUntilNextBelt
+					}
+					if trainingTimeDays != nil {
+						item["training_time_days"] = *trainingTimeDays
+					}
+
+					if chosen != nil && m.ID == chosen.ID {
+						primaryClassesUntilNextBelt = classesUntilNextBelt
+						primaryTrainingTimeDays = trainingTimeDays
+					}
+
+					totalClassesAll += m.TotalClasses
+					out = append(out, item)
 				}
 				resp["student_modalities"] = out
+
+				// Soma de aulas em todas as modalidades aprovadas.
+				resp["total_classes_all"] = totalClassesAll
 
 				// Mantém compatibilidade: também preenche campos top-level com a modalidade escolhida.
 				if chosen.BeltID != "" {
@@ -129,12 +222,24 @@ func (h *AuthHandler) Me(c *gin.Context) {
 					resp["total_classes"] = chosen.TotalClasses
 				}
 
+				// Preenche campos agregados globais a partir da modalidade principal.
+				if primaryClassesUntilNextBelt != nil {
+					resp["classes_until_next_belt"] = *primaryClassesUntilNextBelt
+				}
+				if primaryTrainingTimeDays != nil {
+					resp["training_time_days"] = *primaryTrainingTimeDays
+				}
+
 				// Conveniência: retorna dados mínimos da membership/academia do aluno.
 				if member, err := h.academies.GetAcademyMemberByID(c.Request.Context(), chosen.MemberID); err == nil {
 					resp["academy_id"] = member.AcademyID.String()
 					resp["academy_status"] = member.Status
 					if member.JoinedAt != nil {
 						resp["joined_at"] = *member.JoinedAt
+					}
+					// Nome da academia principal para exibição.
+					if academy, err := h.academies.GetByID(c.Request.Context(), member.AcademyID); err == nil && academy != nil {
+						resp["academy_name"] = academy.Name
 					}
 				}
 			} else {

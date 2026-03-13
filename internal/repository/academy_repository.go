@@ -290,6 +290,12 @@ func NewAcademyRepository(pool *pgxpool.Pool) *AcademyRepository {
 	return &AcademyRepository{pool: pool}
 }
 
+// GetModalityByID expõe a busca de uma modalidade específica, incluindo
+// configurações de graduação e professores, para outros componentes (como handlers).
+func (r *AcademyRepository) GetModalityByID(ctx context.Context, modalityID uuid.UUID) (*AcademyModality, error) {
+	return r.getModalityByID(ctx, modalityID)
+}
+
 func (r *AcademyRepository) Create(ctx context.Context, ownerID uuid.UUID, in CreateAcademyInput) (*Academy, error) {
 	now := time.Now().UTC()
 	trialEnd := now.Add(7 * 24 * time.Hour)
