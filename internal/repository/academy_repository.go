@@ -73,6 +73,8 @@ type BeltConfig struct {
 	RequiresExam        bool
 	ExamFee             *float64
 	Notes               string
+	SortOrder           int
+	Color               string
 }
 
 type AcademyStats struct {
@@ -280,6 +282,8 @@ type BeltConfigInput struct {
 	RequiresExam        bool
 	ExamFee             *float64
 	Notes               *string
+	SortOrder           int
+	Color               *string
 }
 
 type AcademyRepository struct {
@@ -1486,10 +1490,16 @@ WHERE id = $1 AND academy_id = $2
 		if cfg.Notes != nil {
 			notes = *cfg.Notes
 		}
+		var color any = nil
+		if cfg.Color != nil {
+			if trimmed := strings.TrimSpace(*cfg.Color); trimmed != "" {
+				color = trimmed
+			}
+		}
 		_, err := tx.Exec(ctx, `
-INSERT INTO belt_configs (modality_id, belt_id, belt_name, min_classes, min_months, min_classes_per_degree, requires_exam, exam_fee, notes)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-`, modalityID, strings.TrimSpace(cfg.BeltID), strings.TrimSpace(cfg.BeltName), cfg.MinClasses, cfg.MinMonths, cfg.MinClassesPerDegree, cfg.RequiresExam, cfg.ExamFee, notes)
+INSERT INTO belt_configs (modality_id, belt_id, belt_name, min_classes, min_months, min_classes_per_degree, requires_exam, exam_fee, notes, sort_order, color)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+`, modalityID, strings.TrimSpace(cfg.BeltID), strings.TrimSpace(cfg.BeltName), cfg.MinClasses, cfg.MinMonths, cfg.MinClassesPerDegree, cfg.RequiresExam, cfg.ExamFee, notes, cfg.SortOrder, color)
 		if err != nil {
 			return nil, fmt.Errorf("insert belt config: %w", err)
 		}
@@ -2034,10 +2044,10 @@ ORDER BY COALESCE(u.display_name, u.email) ASC
 
 func (r *AcademyRepository) listBeltConfigs(ctx context.Context, modalityID uuid.UUID) ([]BeltConfig, error) {
 	rows, err := r.pool.Query(ctx, `
-SELECT id, modality_id, belt_id, COALESCE(belt_name, ''), min_classes, min_months, min_classes_per_degree, requires_exam, exam_fee, COALESCE(notes, '')
+SELECT id, modality_id, belt_id, COALESCE(belt_name, ''), min_classes, min_months, min_classes_per_degree, requires_exam, exam_fee, COALESCE(notes, ''), sort_order, COALESCE(color, '')
 FROM belt_configs
 WHERE modality_id = $1
-ORDER BY belt_id ASC
+ORDER BY sort_order ASC, belt_id ASC
 `, modalityID)
 	if err != nil {
 		return nil, fmt.Errorf("list belt configs: %w", err)
@@ -2046,7 +2056,20 @@ ORDER BY belt_id ASC
 	var out []BeltConfig
 	for rows.Next() {
 		var b BeltConfig
-		if err := rows.Scan(&b.ID, &b.ModalityID, &b.BeltID, &b.BeltName, &b.MinClasses, &b.MinMonths, &b.MinClassesPerDegree, &b.RequiresExam, &b.ExamFee, &b.Notes); err != nil {
+		if err := rows.Scan(
+			&b.ID,
+			&b.ModalityID,
+			&b.BeltID,
+			&b.BeltName,
+			&b.MinClasses,
+			&b.MinMonths,
+			&b.MinClassesPerDegree,
+			&b.RequiresExam,
+			&b.ExamFee,
+			&b.Notes,
+			&b.SortOrder,
+			&b.Color,
+		); err != nil {
 			return nil, fmt.Errorf("scan belt config: %w", err)
 		}
 		out = append(out, b)

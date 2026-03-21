@@ -2161,6 +2161,11 @@ components:
           format: double
         notes:
           type: string
+        sort_order:
+          type: integer
+        color:
+          type: string
+          description: Cor da faixa (ex: #RRGGBB)
       required: [belt_id, min_classes, requires_exam]
     AcademyModalityResponse:
       type: object
@@ -2219,5 +2224,10 @@ components:
           format: double
         notes:
           type: string
+        sort_order:
+          type: integer
+        color:
+          type: string
+          description: Cor da faixa (ex: #RRGGBB)
       required: [id, modality_id, belt_id]
 

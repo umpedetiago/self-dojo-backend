@@ -143,9 +143,7 @@ func (h *AuthHandler) computeStudentModalityStats(ctx context.Context, m reposit
 		return nil, trainingTimeDays
 	}
 
-	degreesInCurrentBelt := (currentBeltCfg.MinClasses / *currentBeltCfg.MinClassesPerDegree) - 1
-
-	remainingInCurrentBelt := currentBeltCfg.MinClasses - (degreesInCurrentBelt * *currentBeltCfg.MinClassesPerDegree) - m.ClassesAtCurrentBelt
+	remainingInCurrentBelt := currentBeltCfg.MinClasses - (m.Degree * *currentBeltCfg.MinClassesPerDegree) - m.ClassesAtCurrentBelt
 	if remainingInCurrentBelt < 0 {
 		remainingInCurrentBelt = 0
 	}

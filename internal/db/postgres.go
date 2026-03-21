@@ -318,6 +318,7 @@ CREATE TABLE IF NOT EXISTS class_schedule_groups (
 	_, _ = pool.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_academy_modalities_academy ON academy_modalities(academy_id)`)
 	_, _ = pool.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_academy_members_academy ON academy_members(academy_id)`)
 	_, _ = pool.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_belt_configs_modality ON belt_configs(modality_id)`)
+	_, _ = pool.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_belt_configs_sort_order ON belt_configs(modality_id, sort_order)`)
 	_, _ = pool.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_student_modalities_member ON student_modalities(member_id)`)
 	_, _ = pool.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_student_modalities_modality ON student_modalities(modality_id)`)
 	_, _ = pool.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_graduation_history_student_modality ON graduation_history(student_modality_id)`)
@@ -331,5 +332,7 @@ CREATE TABLE IF NOT EXISTS class_schedule_groups (
 	_, _ = pool.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_student_group_members_member ON student_group_members(academy_member_id)`)
 	_, _ = pool.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_class_schedule_groups_group ON class_schedule_groups(group_id)`)
 	_, _ = pool.Exec(ctx, `ALTER TABLE belt_configs ADD COLUMN IF NOT EXISTS belt_name TEXT NOT NULL DEFAULT ''`)
+	_, _ = pool.Exec(ctx, `ALTER TABLE belt_configs ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`)
+	_, _ = pool.Exec(ctx, `ALTER TABLE belt_configs ADD COLUMN IF NOT EXISTS color TEXT`)
 	return nil
 }

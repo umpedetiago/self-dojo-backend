@@ -81,6 +81,8 @@ type beltConfigRequest struct {
 	RequiresExam        bool     `json:"requires_exam"`
 	ExamFee             *float64 `json:"exam_fee,omitempty"`
 	Notes               *string  `json:"notes,omitempty"`
+	SortOrder           *int     `json:"sort_order,omitempty"`
+	Color               *string  `json:"color,omitempty"`
 }
 
 type listMembershipRequestsQuery struct {
@@ -1543,6 +1545,17 @@ func (h *AcademyHandler) UpdateGraduationConfig(c *gin.Context) {
 	}
 	cfgs := make([]repository.BeltConfigInput, 0, len(req.BeltConfigs))
 	for _, item := range req.BeltConfigs {
+		sortOrder := 0
+		if item.SortOrder != nil {
+			sortOrder = *item.SortOrder
+		}
+		var color *string
+		if item.Color != nil {
+			trimmed := strings.TrimSpace(*item.Color)
+			if trimmed != "" {
+				color = &trimmed
+			}
+		}
 		cfgs = append(cfgs, repository.BeltConfigInput{
 			BeltID:              item.BeltID,
 			BeltName:            item.BeltName,
@@ -1552,6 +1565,8 @@ func (h *AcademyHandler) UpdateGraduationConfig(c *gin.Context) {
 			RequiresExam:        item.RequiresExam,
 			ExamFee:             item.ExamFee,
 			Notes:               item.Notes,
+			SortOrder:           sortOrder,
+			Color:               color,
 		})
 	}
 	userID := middleware.MustGetUserID(c)
@@ -1629,6 +1644,8 @@ func modalityToMap(m repository.AcademyModality) gin.H {
 			"requires_exam":          cfg.RequiresExam,
 			"exam_fee":               cfg.ExamFee,
 			"notes":                  cfg.Notes,
+			"sort_order":             cfg.SortOrder,
+			"color":                  cfg.Color,
 		})
 	}
 	return gin.H{
