@@ -2,14 +2,31 @@ services:
   go_db:
     container_name: go_db
     image: postgres:18.1
-    ports:
-      - "5433:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=go_db
     volumes:
-      - ./data:/var/lib/postgresql
+      - ./data:/var/lib/postgresql/data
+    networks:
+      - go_network
+
+  go_api:
+    container_name: go_api
+    build:
+      context: .
+    depends_on:
+      - go_db
+    environment:
+      - PORT=8080
+      - GIN_MODE=release
+      - DATABASE_URL=postgres://postgres:postgres@go_db:5432/go_db?sslmode=disable
+      # Set this in your shell or a compose .env file (do NOT commit real secrets)
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      # Secure default: bind only to localhost.
+      # To allow phones on Wi‑Fi, set HOST_LAN_IP to your machine LAN IP (e.g. 192.168.3.5).
+      - "${HOST_LAN_IP:-127.0.0.1}:8080:8080"
     networks:
       - go_network
 

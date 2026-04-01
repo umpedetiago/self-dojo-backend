@@ -6,6 +6,7 @@ type Config struct {
 	Port                     string
 	DatabaseURL              string
 	JWTSecret                string
+	AutoMigrate              bool
 	ResendAPIKey             string
 	EmailFrom                string
 	FrontendResetPasswordURL string
@@ -30,6 +31,8 @@ func Load() Config {
 		jwtSecret = "dev-secret-change-me"
 	}
 
+	autoMigrate := os.Getenv("AUTO_MIGRATE") == "true"
+
 	emailFrom := os.Getenv("EMAIL_FROM")
 	if emailFrom == "" {
 		emailFrom = "onboarding@resend.dev"
@@ -44,6 +47,7 @@ func Load() Config {
 		Port:                     port,
 		DatabaseURL:              dbURL,
 		JWTSecret:                jwtSecret,
+		AutoMigrate:              autoMigrate,
 		ResendAPIKey:             os.Getenv("RESEND_API_KEY"),
 		EmailFrom:                emailFrom,
 		FrontendResetPasswordURL: os.Getenv("FRONTEND_RESET_PASSWORD_URL"),
