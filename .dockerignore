@@ -1,0 +1,12 @@
+.git
+.github
+.vscode
+.cursor
+data
+**/*.log
+**/*.tmp
+**/*_test.go
+README.md
+docker-compose*.yml
+.env
+.env.*

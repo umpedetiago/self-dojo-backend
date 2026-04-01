@@ -2,34 +2,61 @@ services:
   go_db:
     container_name: go_db
     image: postgres:18.1
+    restart: unless-stopped
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=go_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-go_db}
     volumes:
-      - ./data:/var/lib/postgresql/data
+      - go_db_data:/var/lib/postgresql/data
     networks:
       - go_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   go_api:
     container_name: go_api
     build:
       context: .
+    restart: unless-stopped
     depends_on:
-      - go_db
+      go_db:
+        condition: service_healthy
+    env_file:
+      - .env
     environment:
-      - PORT=8080
-      - GIN_MODE=release
-      - DATABASE_URL=postgres://postgres:postgres@go_db:5432/go_db?sslmode=disable
-      # Set this in your shell or a compose .env file (do NOT commit real secrets)
-      - JWT_SECRET=${JWT_SECRET}
+      PORT: ${PORT:-8080}
+      GIN_MODE: ${GIN_MODE:-release}
+      # Default to internal docker network DB, unless DATABASE_URL is set in .env
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@go_db:5432/go_db?sslmode=disable}
+      JWT_SECRET: ${JWT_SECRET}
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-false}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      FRONTEND_RESET_PASSWORD_URL: ${FRONTEND_RESET_PASSWORD_URL:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      AVATAR_BUCKET: ${AVATAR_BUCKET:-}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:-}
     ports:
       # Secure default: bind only to localhost.
-      # To allow phones on Wi‑Fi, set HOST_LAN_IP to your machine LAN IP (e.g. 192.168.3.5).
-      - "${HOST_LAN_IP:-127.0.0.1}:8080:8080"
+      # If you want to expose to LAN/Internet, set HOST_BIND_IP=0.0.0.0 (or your LAN IP).
+      - "${HOST_BIND_IP:-127.0.0.1}:${PORT:-8080}:8080"
     networks:
       - go_network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ping >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 
 networks:
   go_network:
     driver: bridge
+
+volumes:
+  go_db_data:
