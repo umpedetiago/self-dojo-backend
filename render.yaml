@@ -1,0 +1,39 @@
+# Render Blueprint (Infrastructure as Code)
+# https://render.com/docs/blueprint-spec
+#
+# Monorepo: no painel Render, defina Root Directory = self-dojo-backend para este serviço,
+# ou mova este arquivo para a raiz do Git e ajuste dockerfilePath / dockerContext.
+#
+# Web Service em Docker no Render normalmente usa plano Starter ou superior (não há tier free para Docker).
+# Postgres gerenciado pode ser free; confira limites/regiões no painel.
+# Primeiro deploy com banco vazio: defina AUTO_MIGRATE=true no painel uma vez para criar o schema; depois volte para false.
+
+databases:
+  - name: self-dojo-db
+    databaseName: go_db
+    plan: free
+    region: oregon
+
+services:
+  - type: web
+    name: self-dojo-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    region: oregon
+    healthCheckPath: /ping
+    envVars:
+      - key: GIN_MODE
+        value: release
+      - key: AUTO_MIGRATE
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: self-dojo-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      # Lista separada por vírgula (origens exatas). Defina no painel se usar front no browser.
+      - key: CORS_ALLOW_ORIGINS
+        value: ""
